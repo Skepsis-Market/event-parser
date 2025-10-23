@@ -1,0 +1,21 @@
+{
+  "marketName": "Bitcoin Price Prediction Oct 24",
+  "question": "What will be the price of Bitcoin (BTC/USD) on October 24, 2025?",
+  "description": "Predict Bitcoin's price at market resolution. Current price: $108,000",
+  "category": "Cryptocurrency",
+  "minValue": 100000,
+  "maxValue": 120000,
+  "bucketCount": 200,
+  "initialLiquidity": 50000000000,
+  "biddingDeadlineHours": 3,
+  "resolutionTimeHours": 3,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 0,
+  "valueUnit": "USD",
+  "useSimpleDistribution": true,
+  "peakBucket": 100,
+  "peakPercentage": 1000,
+  "edgePercentage": 5,
+  "rangeBuckets": 99,
+  "interpolationType": 0
+}

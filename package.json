@@ -1,0 +1,34 @@
+{
+  "name": "skepsis-event-parser",
+  "version": "1.0.0",
+  "description": "Sui event parser and reconciliation service for Skepsis prediction markets",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "start:polling": "tsx src/index-polling.ts",
+    "reconcile": "tsx src/reconcile.ts",
+    "dev": "tsx watch src/index.ts",
+    "test:db": "tsx src/test-connection.ts",
+    "check:events": "tsx src/check-events.ts",
+    "admin:create": "tsx src/admin/create-market.ts",
+    "admin:resolve": "tsx src/admin/resolve-market.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@mysten/sui": "^1.43.1",
+    "@types/node": "^24.8.1",
+    "axios": "^1.12.2",
+    "dotenv": "^17.2.3",
+    "mongodb": "^6.20.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/mongodb": "^4.0.6"
+  }
+}
