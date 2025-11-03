@@ -46,6 +46,10 @@ interface MarketConfig {
   decimalPrecision?: number;      // Default: 0
   valueUnit?: string;             // Default: "USD"
   
+  // API fields
+  priceFeed?: string;             // Price feed URL
+  resolutionCriteria?: string;    // Resolution criteria text
+  
   // Simple distribution configuration
   useSimpleDistribution?: boolean;   // Default: false
   peakBucket?: number;                // Peak bucket index
@@ -240,16 +244,6 @@ async function createMarket(config: MarketConfig) {
   
   // Step 4: Register in backend API
   console.log('\n🌐 Step 4/4: Registering in backend API...');
-  
-  // Build resolution criteria text with proper date formatting
-  const resolutionDate = new Date(resolutionTime);
-  const formattedDate = resolutionDate.toISOString().split('T')[0]; // YYYY-MM-DD
-  const resolutionCriteria = `This market resolves using the Bitcoin (BTC/USD) price reported by CoinGecko at 23:59:59 UTC on ${formattedDate}.
-
-The final price will be rounded to the nearest $${bucketWidth} for settlement.
-Only the CoinGecko API will be used as the data source.
-In case of any downtime, the last available price before 23:59:59 UTC will be used.
-Market range: $${(config.minValue / 1000).toFixed(1)}k - $${(config.maxValue / 1000).toFixed(1)}k`;
 
   const apiPayload = {
     marketId: marketId,
@@ -259,8 +253,8 @@ Market range: $${(config.minValue / 1000).toFixed(1)}k - $${(config.maxValue / 1
     createdAt: Date.now().toString(),
     transactionDigest: marketResult.digest,
     marketType: "cryptocurrency",
-    priceFeed: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true",
-    resolutionCriteria: resolutionCriteria,
+    priceFeed: config.priceFeed || "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true",
+    resolutionCriteria: config.resolutionCriteria || `This market resolves using external data at ${new Date(resolutionTime).toISOString()}.\n\nMarket range: $${(config.minValue / 1000).toFixed(1)}k - $${(config.maxValue / 1000).toFixed(1)}k`,
     configuration: {
       marketName: config.marketName,
       question: config.question,
@@ -290,6 +284,10 @@ Market range: $${(config.minValue / 1000).toFixed(1)}k - $${(config.maxValue / 1
     console.log(`✅ Status: ${response.status}`);
   } catch (error: any) {
     console.log(`⚠️  API Registration Failed: ${error.message}`);
+    if (error.response) {
+      console.log(`⚠️  Status Code: ${error.response.status}`);
+      console.log(`⚠️  Response Data:`, JSON.stringify(error.response.data, null, 2));
+    }
     console.log(`⚠️  Market is created on-chain but not in database`);
     console.log(`\n📋 Manual API payload:`);
     console.log(JSON.stringify(apiPayload, null, 2));

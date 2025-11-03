@@ -55,13 +55,21 @@ export const CONFIG = {
 
   // MongoDB (same for both environments)
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017',
-  mongodbDb: process.env.MONGODB_DB || 'skepsis',
+  mongodbDb: '', // Will be extracted from URI
 };
 
 // Validation
 if (!CONFIG.suiPrivateKey) {
   throw new Error('SUI_PRIVATE_KEY not set in .env');
 }
+
+// Extract DB name from URI (mongodb://user:pass@host:port/dbname?options)
+const extractDbName = (uri: string): string => {
+  const match = uri.match(/\/([^/?]+)(\?|$)/);
+  return match ? match[1] : 'skepsis';
+};
+
+CONFIG.mongodbDb = extractDbName(CONFIG.mongodbUri);
 
 // Log active environment on startup
 console.log(`✅ Configuration loaded for: ${CONFIG.environment.toUpperCase()}`);
