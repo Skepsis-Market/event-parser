@@ -8,16 +8,15 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import * as dotenv from 'dotenv';
 import axios from 'axios';
+import CONFIG from '../config/env';
 
-dotenv.config();
-
-// Configuration from .env
-const PACKAGE_ID = process.env.PACKAGE_ID!;
-const USDC_TYPE = process.env.USDC_TYPE!;
-const NETWORK = process.env.SUI_NETWORK || 'testnet';
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+// Use dynamic config based on ENVIRONMENT flag
+const PACKAGE_ID = CONFIG.packageId;
+const USDC_TYPE = CONFIG.usdcType;
+const NETWORK = CONFIG.suiNetwork;
+const API_BASE_URL = CONFIG.apiBaseUrl;
+const SUI_RPC_URL = CONFIG.suiRpcUrl;
 
 interface ResolveConfig {
   marketId: string;
@@ -31,12 +30,12 @@ async function resolveMarket(config: ResolveConfig) {
   // Initialize client
   const client = new SuiClient({ 
     url: NETWORK === 'localnet' 
-      ? process.env.SUI_RPC_URL! 
+      ? SUI_RPC_URL
       : getFullnodeUrl(NETWORK as any)
   });
   
   // Get keypair
-  const privateKeyBase64 = process.env.SUI_PRIVATE_KEY;
+  const privateKeyBase64 = CONFIG.suiPrivateKey;
   if (!privateKeyBase64) {
     throw new Error('SUI_PRIVATE_KEY not set in .env');
   }
@@ -54,17 +53,27 @@ async function resolveMarket(config: ResolveConfig) {
   
   const marketObj = await client.getObject({
     id: config.marketId,
-    options: { showContent: true }
+    options: { showContent: true, showType: true }
   });
   
-  if (!marketObj.data?.content || !('fields' in marketObj.data.content)) {
-    throw new Error('Invalid market object');
+  if (!marketObj.data) {
+    throw new Error(`Market not found: ${config.marketId}`);
+  }
+  
+  if (!marketObj.data.content) {
+    console.log('Market object:', JSON.stringify(marketObj.data, null, 2));
+    throw new Error('Market object has no content - may need time to index');
+  }
+  
+  if (!('fields' in marketObj.data.content)) {
+    console.log('Market content:', JSON.stringify(marketObj.data.content, null, 2));
+    throw new Error('Invalid market object structure - fields not found');
   }
   
   const fields = marketObj.data.content.fields as any;
   
   if (fields.state !== 0) {
-    throw new Error('Market is already resolved!');
+    throw new Error(`Market is already resolved! State: ${fields.state}`);
   }
   
   console.log(`✅ Market is open and ready for resolution`);

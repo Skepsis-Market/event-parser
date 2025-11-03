@@ -87,6 +87,9 @@ export class EventListener {
       case 'WINNINGS_CLAIMED':
         await this.handlers.handleWinningsClaimed(eventData, eventId);
         break;
+      case 'MARKET_RESOLVED':
+        await this.handlers.handleMarketResolved(eventData, eventId);
+        break;
     }
     
     // Update last processed event

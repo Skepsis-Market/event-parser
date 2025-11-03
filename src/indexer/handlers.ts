@@ -1,4 +1,6 @@
 import { Db } from 'mongodb';
+import axios from 'axios';
+import CONFIG from '../config/env';
 
 export class EventHandlers {
   constructor(private db: Db) {}
@@ -35,6 +37,15 @@ export class EventHandlers {
   
   async handleSharesSold(event: any, eventId: any): Promise<void> {
     try {
+      // Log raw event for debugging
+      console.log(`📊 SharesSold event data:`, {
+        user: event.user,
+        market_id: event.market_id,
+        shares_sold: event.shares_sold,
+        amount_received: event.amount_received,
+        tx: eventId.txDigest.slice(0, 10)
+      });
+
       await this.db.collection('trades').insertOne({
         user: event.user,
         market_id: event.market_id,
@@ -52,11 +63,13 @@ export class EventHandlers {
         indexed_at: new Date()
       });
       
-      console.log(`✅ SharesSold indexed: ${event.user} on ${event.market_id}`);
+      console.log(`✅ SharesSold indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`);
     } catch (error: any) {
       if (error.code === 11000) {
         console.log(`⚠️  Duplicate SharesSold event (tx: ${eventId.txDigest})`);
       } else {
+        console.error(`❌ SharesSold handler error:`, error);
+        console.error(`   Event data:`, event);
         throw error;
       }
     }
@@ -89,6 +102,36 @@ export class EventHandlers {
       } else {
         throw error;
       }
+    }
+  }
+
+  async handleMarketResolved(event: any, eventId: any): Promise<void> {
+    try {
+      // Sync resolution to backend API
+      const apiUrl = `${CONFIG.apiBaseUrl}/api/markets/${event.market_id}/status`;
+      
+      await axios.patch(
+        apiUrl,
+        {
+          status: 'resolved',
+          resolvedValue: Number(event.resolution_value)
+        },
+        { 
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 5000
+        }
+      );
+      
+      console.log(`✅ MarketResolved synced to API: ${event.market_id} → ${event.resolution_value}`);
+    } catch (error: any) {
+      if (error.response) {
+        console.error(`⚠️  API sync failed (${error.response.status}): ${error.message}`);
+      } else if (error.request) {
+        console.error(`⚠️  API unreachable: ${error.message}`);
+      } else {
+        console.error(`⚠️  MarketResolved error: ${error.message}`);
+      }
+      // Don't throw - market is resolved on-chain regardless of API sync
     }
   }
 }

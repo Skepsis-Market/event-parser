@@ -1,7 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import CONFIG from '../config/env';
 
 let client: MongoClient;
 let db: Db;
@@ -9,8 +7,8 @@ let db: Db;
 export async function connectDB(): Promise<Db> {
   if (db) return db;
   
-  const uri = process.env.MONGODB_URI!;
-  const dbName = process.env.MONGODB_DB!;
+  const uri = CONFIG.mongodbUri;
+  const dbName = CONFIG.mongodbDb;
   
   client = new MongoClient(uri);
   await client.connect();

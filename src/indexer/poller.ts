@@ -6,7 +6,7 @@ import { EVENT_TYPES } from '../sui/client';
 export class EventPoller {
   private handlers: EventHandlers;
   private isRunning = false;
-  private lastCursor: any = null;
+  private cursors: Map<string, any> = new Map(); // Separate cursor per event type
   
   constructor(
     private suiClient: SuiClient,
@@ -44,25 +44,29 @@ export class EventPoller {
   private async fetchAndProcessEvents(): Promise<void> {
     let hasNewEvents = false;
     
-    // Query all event types
+    // Query all event types (each with its own cursor)
     for (const [name, eventType] of Object.entries(EVENT_TYPES)) {
       try {
+        const eventCursor = this.cursors.get(name) || null;
+        
         const result = await this.suiClient.queryEvents({
           query: { MoveEventType: eventType },
-          cursor: this.lastCursor,
+          cursor: eventCursor,
           limit: 50,
           order: 'ascending'
         });
         
         if (result.data.length > 0) {
+          console.log(`\n📦 Found ${result.data.length} ${name} events`);
+          
           for (const event of result.data) {
             await this.processEvent(name, event);
             hasNewEvents = true;
           }
           
-          // Update cursor for pagination
+          // Update cursor for this specific event type
           if (result.nextCursor) {
-            this.lastCursor = result.nextCursor;
+            this.cursors.set(name, result.nextCursor);
           }
         }
       } catch (error) {
@@ -91,6 +95,9 @@ export class EventPoller {
         break;
       case 'WINNINGS_CLAIMED':
         await this.handlers.handleWinningsClaimed(eventData, eventId);
+        break;
+      case 'MARKET_RESOLVED':
+        await this.handlers.handleMarketResolved(eventData, eventId);
         break;
     }
     

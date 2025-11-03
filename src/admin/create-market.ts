@@ -8,18 +8,17 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import * as dotenv from 'dotenv';
 import axios from 'axios';
+import CONFIG from '../config/env';
 
-dotenv.config();
-
-// Configuration from .env
-const PACKAGE_ID = process.env.PACKAGE_ID!;
-const MARKET_REGISTRY = process.env.MARKET_REGISTRY!;
-const ADMIN_CAP = process.env.ADMIN_CAP!;
-const USDC_TYPE = process.env.USDC_TYPE!;
-const NETWORK = process.env.SUI_NETWORK || 'testnet';
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+// Use dynamic config based on ENVIRONMENT flag
+const PACKAGE_ID = CONFIG.packageId;
+const MARKET_REGISTRY = CONFIG.marketRegistry;
+const ADMIN_CAP = CONFIG.adminCap;
+const USDC_TYPE = CONFIG.usdcType;
+const NETWORK = CONFIG.suiNetwork;
+const API_BASE_URL = CONFIG.apiBaseUrl;
+const SUI_RPC_URL = CONFIG.suiRpcUrl;
 
 interface MarketConfig {
   // Basic info
@@ -36,9 +35,11 @@ interface MarketConfig {
   // Liquidity
   initialLiquidity: number; // In micro-USDC (e.g., 50000000000 = $50K)
   
-  // Timing (in hours from now)
-  biddingDeadlineHours: number;
-  resolutionTimeHours: number;
+  // Timing (support both formats)
+  biddingDeadlineHours?: number;      // Hours from now (legacy)
+  resolutionTimeHours?: number;       // Hours from now (legacy)
+  biddingDeadline?: number;           // Absolute timestamp in milliseconds
+  resolutionTime?: number;            // Absolute timestamp in milliseconds
   
   // Optional
   creatorFeeBasisPoints?: number; // Default: 50 (0.5%)
@@ -61,12 +62,12 @@ async function createMarket(config: MarketConfig) {
   // Initialize client
   const client = new SuiClient({ 
     url: NETWORK === 'localnet' 
-      ? process.env.SUI_RPC_URL! 
+      ? SUI_RPC_URL
       : getFullnodeUrl(NETWORK as any)
   });
   
   // Get keypair
-  const privateKeyBase64 = process.env.SUI_PRIVATE_KEY;
+  const privateKeyBase64 = CONFIG.suiPrivateKey;
   if (!privateKeyBase64) {
     throw new Error('SUI_PRIVATE_KEY not set in .env');
   }
@@ -78,9 +79,23 @@ async function createMarket(config: MarketConfig) {
   console.log(`🌐 Network: ${NETWORK}`);
   console.log(`📊 Market: ${config.question}`);
   
-  // Calculate timing
-  const biddingDeadline = Date.now() + (config.biddingDeadlineHours * 60 * 60 * 1000);
-  const resolutionTime = Date.now() + (config.resolutionTimeHours * 60 * 60 * 1000);
+  // Calculate timing - support both absolute timestamps and hours from now
+  let biddingDeadline: number;
+  let resolutionTime: number;
+  
+  if (config.biddingDeadline && config.resolutionTime) {
+    // Use absolute timestamps (in milliseconds)
+    biddingDeadline = config.biddingDeadline;
+    resolutionTime = config.resolutionTime;
+    console.log('⏱️  Using absolute timestamps');
+  } else if (config.biddingDeadlineHours !== undefined && config.resolutionTimeHours !== undefined) {
+    // Calculate from hours
+    biddingDeadline = Date.now() + (config.biddingDeadlineHours * 60 * 60 * 1000);
+    resolutionTime = Date.now() + (config.resolutionTimeHours * 60 * 60 * 1000);
+    console.log('⏱️  Using hours from now');
+  } else {
+    throw new Error('Must provide either (biddingDeadline + resolutionTime) or (biddingDeadlineHours + resolutionTimeHours)');
+  }
   
   console.log(`⏰ Bidding Deadline: ${new Date(biddingDeadline).toISOString()}`);
   console.log(`⏰ Resolution Time: ${new Date(resolutionTime).toISOString()}`);
@@ -226,14 +241,26 @@ async function createMarket(config: MarketConfig) {
   // Step 4: Register in backend API
   console.log('\n🌐 Step 4/4: Registering in backend API...');
   
+  // Build resolution criteria text with proper date formatting
+  const resolutionDate = new Date(resolutionTime);
+  const formattedDate = resolutionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  const resolutionCriteria = `This market resolves using the Bitcoin (BTC/USD) price reported by CoinGecko at 23:59:59 UTC on ${formattedDate}.
+
+The final price will be rounded to the nearest $${bucketWidth} for settlement.
+Only the CoinGecko API will be used as the data source.
+In case of any downtime, the last available price before 23:59:59 UTC will be used.
+Market range: $${(config.minValue / 1000).toFixed(1)}k - $${(config.maxValue / 1000).toFixed(1)}k`;
+
   const apiPayload = {
     marketId: marketId,
+    creatorCapId: creatorCapId,
     packageId: PACKAGE_ID,
     network: NETWORK,
     createdAt: Date.now().toString(),
     transactionDigest: marketResult.digest,
-    creatorCapId: creatorCapId,
-    marketType: "prediction",
+    marketType: "cryptocurrency",
+    priceFeed: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true",
+    resolutionCriteria: resolutionCriteria,
     configuration: {
       marketName: config.marketName,
       question: config.question,
@@ -284,7 +311,7 @@ async function main() {
   
   if (args.length === 0) {
     console.log('Usage: tsx src/admin/create-market.ts <config-file.json>');
-    console.log('\nExample config.json:');
+    console.log('\nExample config.json (using hours):');
     console.log(JSON.stringify({
       marketName: "Bitcoin Price Prediction",
       question: "What will Bitcoin price be on Oct 25, 2025?",
@@ -296,6 +323,19 @@ async function main() {
       initialLiquidity: 50000000000,
       biddingDeadlineHours: 2,
       resolutionTimeHours: 3
+    }, null, 2));
+    console.log('\nExample config.json (using absolute timestamps):');
+    console.log(JSON.stringify({
+      marketName: "Bitcoin Price Prediction",
+      question: "What will Bitcoin price be on Oct 25, 2025?",
+      description: "Predict BTC/USD price at resolution",
+      category: "Cryptocurrency",
+      minValue: 100000,
+      maxValue: 120000,
+      bucketCount: 200,
+      initialLiquidity: 50000000000,
+      biddingDeadline: Date.now() + 7200000,  // 2 hours in ms
+      resolutionTime: Date.now() + 10800000   // 3 hours in ms
     }, null, 2));
     process.exit(1);
   }
