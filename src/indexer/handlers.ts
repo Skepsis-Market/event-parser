@@ -117,7 +117,10 @@ export class EventHandlers {
           resolvedValue: Number(event.resolution_value)
         },
         { 
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-secret': CONFIG.adminSecret
+          },
           timeout: 5000
         }
       );

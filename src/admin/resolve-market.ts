@@ -118,18 +118,30 @@ async function resolveMarket(config: ResolveConfig) {
   try {
     const response = await axios.patch(
       `${API_BASE_URL}/api/markets/${config.marketId}/status`,
-      { status: 'resolved' },
-      { headers: { 'Content-Type': 'application/json' } }
+      { 
+        status: 'resolved',
+        resolvedValue: config.resolutionValue
+      },
+      { 
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': CONFIG.adminSecret
+        } 
+      }
     );
     
     console.log(`✅ API Update: Success`);
     console.log(`✅ Status: ${response.status}`);
   } catch (error: any) {
     console.log(`⚠️  API Update Failed: ${error.message}`);
+    if (error.response) {
+      console.log(`⚠️  Status Code: ${error.response.status}`);
+      console.log(`⚠️  Response Data:`, JSON.stringify(error.response.data, null, 2));
+    }
     console.log(`⚠️  Market is resolved on-chain but status not updated in database`);
     console.log(`\n📋 Manual API call:`);
     console.log(`PATCH ${API_BASE_URL}/api/markets/${config.marketId}/status`);
-    console.log(`Body: {"status": "resolved"}`);
+    console.log(`Body: {"status": "resolved", "resolvedValue": ${config.resolutionValue}}`);
   }
   
   console.log('\n🎉 MARKET RESOLUTION COMPLETE!');

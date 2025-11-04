@@ -277,7 +277,12 @@ async function createMarket(config: MarketConfig) {
     const response = await axios.post(
       `${API_BASE_URL}/api/markets`,
       apiPayload,
-      { headers: { 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-secret': CONFIG.adminSecret
+        } 
+      }
     );
     
     console.log(`✅ API Registration: Success`);
