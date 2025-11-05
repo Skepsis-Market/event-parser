@@ -1,14 +1,14 @@
 {
-  "marketName": "Bitcoin Price Prediction Nov 5",
-  "question": "What will be the price of Bitcoin (BTC/USD) on November 5, 2025?",
-  "description": "Predict Bitcoin's price at market resolution. Current price: $108,000",
+  "marketName": "Bitcoin Price Prediction Nov 6",
+  "question": "What will be the price of Bitcoin (BTC/USD) on November 6, 2025?",
+  "description": "Predict Bitcoin's price at market resolution. Current price: $104,000",
   "category": "Cryptocurrency",
   "minValue": 90000,
   "maxValue": 110000,
   "bucketCount": 200,
   "initialLiquidity": 50000000000,
-  "biddingDeadline": 1762372800000,
-  "resolutionTime": 1762372800000,
+  "biddingDeadline": 1762459200000,
+  "resolutionTime": 1762459200000,
   "creatorFeeBasisPoints": 50,
   "decimalPrecision": 0,
   "valueUnit": "USD",
@@ -19,5 +19,5 @@
   "rangeBuckets": 50,
   "interpolationType": 0,
   "priceFeed": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true",
-  "resolutionCriteria": "This market resolves using the Bitcoin (BTC/USD) price reported by CoinGecko at 20:00:00 UTC on 2025-11-05.\n\nThe final price will be the floor price (removing decimals) of the reported price for settlement.\nOnly the CoinGecko API will be used as the data source.\nIn case of any downtime, the last available price before 20:00:00 UTC will be used.\nMarket range: $90.0k - $110.0k"
+  "resolutionCriteria": "This market resolves using the Bitcoin (BTC/USD) price reported by CoinGecko at 20:00:00 UTC on 2025-11-06.\n\nThe final price will be the floor price (removing decimals) of the reported price for settlement.\nOnly the CoinGecko API will be used as the data source.\nIn case of any downtime, the last available price before 20:00:00 UTC will be used.\nMarket range: $90.0k - $110.0k"
 }
