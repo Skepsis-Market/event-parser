@@ -1,0 +1,10 @@
+{
+  "total_unique_wallets": 2,
+  "waitlist_wallets": 2,
+  "trading_wallets": 1,
+  "sponsored_wallets": 0,
+  "wallets": [
+    "0x57400cf44ad97dac479671bb58b96d444e87972f09a6e17fa9650a2c60fbc054",
+    "0xcb2b686b58f4abc2fa91212694a5a0c2b90e17ea8302c24d52ccb925ba0f295a"
+  ]
+}
