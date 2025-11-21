@@ -50,11 +50,11 @@ export const CONFIG = {
   // API
   apiBaseUrl: getConfig('API_BASE_URL'),
 
+  // Admin secret for backend API authentication (environment-specific)
+  adminSecret: getConfig('ADMIN_SECRET'),
+
   // Private key (same for both environments)
   suiPrivateKey: process.env.SUI_PRIVATE_KEY!,
-
-  // Admin secret for backend API authentication
-  adminSecret: process.env.ADMIN_SECRET!,
 
   // MongoDB (same for both environments)
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017',
@@ -64,10 +64,6 @@ export const CONFIG = {
 // Validation
 if (!CONFIG.suiPrivateKey) {
   throw new Error('SUI_PRIVATE_KEY not set in .env');
-}
-
-if (!CONFIG.adminSecret) {
-  throw new Error('ADMIN_SECRET not set in .env');
 }
 
 // Extract DB name from URI (mongodb://user:pass@host:port/dbname?options)

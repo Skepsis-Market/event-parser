@@ -50,6 +50,16 @@ interface MarketConfig {
   priceFeed?: string;             // Price feed URL
   resolutionCriteria?: string;    // Resolution criteria text
   
+  // NEW: Display formatting fields
+  valueType?: string;             // "currency" | "percentage" | "temperature" | "score" | "decimal"
+  valuePrefix?: string;           // "$" or ""
+  valueSuffix?: string;           // "%" or "°C" or ""
+  useKSuffix?: boolean;           // true for large numbers (shows $90K), false for small (shows $1.50)
+  
+  // NEW: Image fields (upload image manually first to get URL)
+  marketImage?: string;           // Full S3 URL (e.g., https://skepsis-markets.s3.us-east-1.amazonaws.com/markets/abc-123.jpg)
+  marketImageKey?: string;        // S3 key (e.g., markets/abc-123.jpg)
+  
   // Simple distribution configuration
   useSimpleDistribution?: boolean;   // Default: false
   peakBucket?: number;                // Peak bucket index
@@ -207,16 +217,9 @@ async function createMarket(config: MarketConfig) {
       marketTx.pure.string("Market resolves to actual value at resolution time"),
       marketTx.pure.address(signerAddress),
       liquidityCoin,
-      marketTx.pure.option("u64", null),
+      marketTx.pure.option("u64", null), // custom_alpha (None)
       marketTx.pure.u8(config.decimalPrecision || 0),
       marketTx.pure.string(config.valueUnit || "USD"),
-      // Simple distribution configuration
-      marketTx.pure.bool(config.useSimpleDistribution || false),
-      marketTx.pure.u64(config.peakBucket || 0),
-      marketTx.pure.u64(config.peakPercentage || 0),
-      marketTx.pure.u64(config.edgePercentage || 0),
-      marketTx.pure.u64(config.rangeBuckets || 0),
-      marketTx.pure.u8(config.interpolationType || 0),
     ],
     typeArguments: [USDC_TYPE]
   });
@@ -269,7 +272,15 @@ async function createMarket(config: MarketConfig) {
       biddingDeadline: biddingDeadline,
       resolutionTime: resolutionTime,
       initialLiquidity: config.initialLiquidity,
-      usdcType: USDC_TYPE
+      usdcType: USDC_TYPE,
+      // NEW: Display formatting fields
+      valueType: config.valueType || "currency",
+      valuePrefix: config.valuePrefix || "$",
+      valueSuffix: config.valueSuffix || "",
+      useKSuffix: config.useKSuffix ?? true,  // Default to true for backwards compatibility
+      // NEW: Image fields (optional, upload manually to avoid duplicates)
+      ...(config.marketImage && { marketImage: config.marketImage }),
+      ...(config.marketImageKey && { marketImageKey: config.marketImageKey })
     }
   };
   

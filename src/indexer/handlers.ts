@@ -1,6 +1,7 @@
 import { Db } from 'mongodb';
 import axios from 'axios';
 import CONFIG from '../config/env';
+import { resolutionScheduler } from '../scheduler/resolution-scheduler';
 
 export class EventHandlers {
   constructor(private db: Db) {}
@@ -109,12 +110,20 @@ export class EventHandlers {
     try {
       // Sync resolution to backend API
       const apiUrl = `${CONFIG.apiBaseUrl}/api/markets/${event.market_id}/status`;
+
+      const resolvedValueRaw = event.resolution_value ?? event.resolved_value ?? event.value ?? event.result_value;
+      const resolvedValue = resolvedValueRaw !== undefined ? Number(resolvedValueRaw) : undefined;
+      
+      if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
+        console.warn(`⚠️  MarketResolved event missing resolution value:`, event);
+        return;
+      }
       
       await axios.patch(
         apiUrl,
         {
           status: 'resolved',
-          resolvedValue: Number(event.resolution_value)
+          resolvedValue
         },
         { 
           headers: { 
@@ -125,7 +134,7 @@ export class EventHandlers {
         }
       );
       
-      console.log(`✅ MarketResolved synced to API: ${event.market_id} → ${event.resolution_value}`);
+      console.log(`✅ MarketResolved synced to API: ${event.market_id} → ${resolvedValue}`);
     } catch (error: any) {
       if (error.response) {
         console.error(`⚠️  API sync failed (${error.response.status}): ${error.message}`);
@@ -135,6 +144,47 @@ export class EventHandlers {
         console.error(`⚠️  MarketResolved error: ${error.message}`);
       }
       // Don't throw - market is resolved on-chain regardless of API sync
+    }
+  }
+
+  async handleMarketCreated(event: any, eventId: any): Promise<void> {
+    try {
+      const marketId = event.market_id;
+      const resolutionTime = Number(event.resolution_time);
+      
+      console.log(`📅 MarketCreated event detected:`);
+      console.log(`   Market ID: ${marketId}`);
+      console.log(`   Resolution Time: ${new Date(resolutionTime).toISOString()}`);
+      
+      // Store in MongoDB with duplicate check
+      try {
+        await this.db.collection('scheduled_resolutions').insertOne({
+          marketId: marketId,
+          resolutionTime: resolutionTime,
+          status: 'pending',
+          createdAt: new Date(),
+          lastAttempt: null,
+          error: null,
+          tx_hash: eventId.txDigest,
+          indexed_at: new Date()
+        });
+        
+        console.log(`   ✅ Stored in MongoDB: scheduled_resolutions`);
+      } catch (error: any) {
+        if (error.code === 11000) {
+          console.log(`   ⚠️  Already scheduled (duplicate event)`);
+          return; // Skip scheduling if already exists
+        } else {
+          throw error;
+        }
+      }
+      
+      // Schedule automatic resolution
+      resolutionScheduler.scheduleMarketResolution(marketId, resolutionTime);
+      
+    } catch (error: any) {
+      console.error(`⚠️  Failed to handle MarketCreated: ${error.message}`);
+      // Don't throw - this is not critical for indexing
     }
   }
 }

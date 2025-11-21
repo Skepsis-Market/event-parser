@@ -12,5 +12,6 @@ export const EVENT_TYPES = {
   BET_PLACED: `${PACKAGE_ID}::events::BetPlaced`,
   SHARES_SOLD: `${PACKAGE_ID}::events::SharesSold`,
   WINNINGS_CLAIMED: `${PACKAGE_ID}::events::WinningsClaimed`,
-  MARKET_RESOLVED: `${PACKAGE_ID}::events::MarketResolved`
+  MARKET_RESOLVED: `${PACKAGE_ID}::events::MarketResolved`,
+  MARKET_CREATED: `${PACKAGE_ID}::events::MarketCreated`
 };

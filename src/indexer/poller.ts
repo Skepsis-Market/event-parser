@@ -99,6 +99,9 @@ export class EventPoller {
       case 'MARKET_RESOLVED':
         await this.handlers.handleMarketResolved(eventData, eventId);
         break;
+      case 'MARKET_CREATED':
+        await this.handlers.handleMarketCreated(eventData, eventId);
+        break;
     }
     
     // Update last processed event

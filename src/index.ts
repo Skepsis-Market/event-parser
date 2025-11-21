@@ -2,6 +2,7 @@ import { connectDB, closeDB } from './db/connection';
 import { initializeCollections } from './db/init';
 import { EventListener } from './indexer/listener';
 import { suiClient } from './sui/client';
+import { resolutionScheduler } from './scheduler/resolution-scheduler';
 
 async function main() {
   console.log('🚀 Skepsis Event Parser Starting...\n');
@@ -12,6 +13,9 @@ async function main() {
     
     // Initialize collections and indexes
     await initializeCollections(db);
+    
+    // Initialize resolution scheduler
+    await resolutionScheduler.initialize(db);
     
     console.log('\n📡 Starting WebSocket event listener...\n');
     
