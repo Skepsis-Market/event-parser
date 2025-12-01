@@ -1,0 +1,23 @@
+{
+  "marketName": "Bitcoin Price Prediction Dec 10",
+  "question": "What will be the price of Bitcoin (BTC/USD) on December 10, 2025?",
+  "description": "Predict Bitcoin's price at market resolution. Current price: ~$96,000",
+  "category": "Cryptocurrency",
+  "minValue": 85000,
+  "maxValue": 105000,
+  "bucketCount": 200,
+  "initialLiquidity": 50000000000,
+  "biddingDeadline": 1765407600000,
+  "resolutionTime": 1765407600000,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 0,
+  "valueUnit": "USD",
+  "priceFeed": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true",
+  "resolutionCriteria": "This market resolves using the Bitcoin (BTC/USD) price reported by CoinGecko at 23:00:00 UTC on December 10, 2025.\n\nThe final price will be floored to the nearest dollar for settlement.\nOnly the CoinGecko API will be used as the data source.\nIn case of any downtime, the last available price before resolution will be used.\nMarket range: $85,000 - $105,000",
+  "valueType": "currency",
+  "valuePrefix": "$",
+  "valueSuffix": "",
+  "useKSuffix": true,
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/bb2a2168-3ad9-438d-8aac-7a0e2ff8f6ef.png",
+  "marketImageKey": "markets/bb2a2168-3ad9-438d-8aac-7a0e2ff8f6ef.png"
+}

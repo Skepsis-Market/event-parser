@@ -13,6 +13,7 @@
     "check:events": "tsx src/check-events.ts",
     "admin:create": "tsx src/admin/create-market.ts",
     "admin:resolve": "tsx src/admin/resolve-market.ts",
+    "admin:resolve-patch": "tsx src/admin/resolve-market-patch.ts",
     "admin:distribute": "tsx src/admin/distribute-usdc.ts"
   },
   "keywords": [],

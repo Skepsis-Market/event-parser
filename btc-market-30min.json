@@ -1,0 +1,23 @@
+{
+  "marketName": "Bitcoin Price Prediction Nov 24 - 30min",
+  "question": "What will be the price of Bitcoin (BTC/USD) in 30 minutes?",
+  "description": "Predict Bitcoin's price at market resolution. Current price: ~$98,000",
+  "category": "Cryptocurrency",
+  "minValue": 77800,
+  "maxValue": 97800,
+  "bucketCount": 200,
+  "initialLiquidity": 50000000000,
+  "biddingDeadline": 1764089475645,
+  "resolutionTime": 1764089475645,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 0,
+  "valueUnit": "USD",
+  "priceFeed": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true",
+  "resolutionCriteria": "This market resolves using the Bitcoin (BTC/USD) price reported by CoinGecko at 21:10 UTC on November 24, 2025.\n\nThe final price will be floored to the nearest dollar for settlement.\nOnly the CoinGecko API will be used as the data source.\nIn case of any downtime, the last available price before resolution will be used.\nMarket range: $90,000 - $110,000",
+  "valueType": "currency",
+  "valuePrefix": "$",
+  "valueSuffix": "",
+  "useKSuffix": true,
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/bb2a2168-3ad9-438d-8aac-7a0e2ff8f6ef.png",
+  "marketImageKey": "markets/bb2a2168-3ad9-438d-8aac-7a0e2ff8f6ef.png"
+}
