@@ -21,16 +21,22 @@ export async function fetchPriceFromFeed(priceFeedUrl: string): Promise<PriceDat
     // Parse different response formats
     let price: number | undefined;
     
-    // CoinGecko format: { bitcoin: { usd: 104000 } }
-    if (response.data.bitcoin?.usd) {
-      price = response.data.bitcoin.usd;
-    } 
+    // CoinGecko format: { bitcoin: { usd: 104000 } } or { sui: { usd: 1.34 } }
+    // Check for any coin ID key with usd property
+    const coinKeys = Object.keys(response.data);
+    for (const key of coinKeys) {
+      if (response.data[key]?.usd && typeof response.data[key].usd === 'number') {
+        price = response.data[key].usd;
+        break;
+      }
+    }
+    
     // Alternative format: { usd: 104000 }
-    else if (response.data.usd) {
+    if (!price && response.data.usd && typeof response.data.usd === 'number') {
       price = response.data.usd;
     } 
     // Generic format: { price: 104000 }
-    else if (typeof response.data.price === 'number') {
+    else if (!price && typeof response.data.price === 'number') {
       price = response.data.price;
     }
     

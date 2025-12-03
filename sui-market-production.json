@@ -1,0 +1,23 @@
+{
+  "marketName": "Sui Price Prediction - December 10, 2025",
+  "question": "What will be the price of SUI (in USD) on December 10, 2025 at 23:00 UTC?",
+  "description": "Predict the price of Sui (SUI) cryptocurrency at the specified resolution time. The market uses real-time price data from CoinGecko.\n\nCurrent SUI price: ~$1.73 USD\n\nThis market offers a balanced range from $1.50 to $2.00, covering the likely short-term price movement of SUI. Each bucket represents a $0.05 price range.",
+  "category": "Cryptocurrency",
+  "minValue": 150,
+  "maxValue": 200,
+  "decimalPrecision": 2,
+  "bucketCount": 10,
+  "initialLiquidity": 10000000000,
+  "biddingDeadline": 1765407600000,
+  "resolutionTime": 1765407600000,
+  "creatorFeeBasisPoints": 50,
+  "valueUnit": "USD",
+  "priceFeed": "https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd",
+  "resolutionCriteria": "This market resolves using the Sui (SUI/USD) price reported by CoinGecko at 23:00:00 UTC on December 10, 2025.\n\nThe final price will be scaled to 2 decimal places (cents) for settlement.\nOnly the CoinGecko API will be used as the data source.\nIn case of any downtime, the last available price before resolution will be used.\nMarket range: $1.50 - $2.00",
+  "valueType": "currency",
+  "valuePrefix": "$",
+  "valueSuffix": "",
+  "useKSuffix": false,
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/3f100f05-220e-41ba-aa7b-19bb35eea55a.png",
+  "marketImageKey": "markets/3f100f05-220e-41ba-aa7b-19bb35eea55a.png"
+}

@@ -111,7 +111,8 @@ export class EventHandlers {
       // Sync resolution to backend API
       const apiUrl = `${CONFIG.apiBaseUrl}/api/markets/${event.market_id}/status`;
 
-      const resolvedValueRaw = event.resolution_value ?? event.resolved_value ?? event.value ?? event.result_value;
+      // V12 contract emits 'winning_outcome', older versions used 'resolution_value'
+      const resolvedValueRaw = event.winning_outcome ?? event.resolution_value ?? event.resolved_value ?? event.value ?? event.result_value;
       const resolvedValue = resolvedValueRaw !== undefined ? Number(resolvedValueRaw) : undefined;
       
       if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
