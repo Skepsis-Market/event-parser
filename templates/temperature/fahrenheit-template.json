@@ -12,14 +12,13 @@
   "creatorFeeBasisPoints": 50,
   "decimalPrecision": 0,
   "valueUnit": "Fahrenheit",
-  "useSimpleDistribution": true,
   "priceFeed": "[WEATHER_API_URL]",
   "resolutionCriteria": "This market resolves using the official high temperature recorded at [WEATHER_STATION] on [DATE].\n\nThe final temperature will be rounded to the nearest whole degree Fahrenheit for settlement.\n[WEATHER_SOURCE] will be used as the primary data source.\nIn case of discrepancies, the National Weather Service reading will be used.\nMarket range: [MIN_VALUE]°F - [MAX_VALUE]°F",
   "valueType": "temperature",
   "valuePrefix": "",
   "valueSuffix": "°F",
   "useKSuffix": false,
-  "_comment_image": "Optional: Upload image first using POST /api/markets/upload-image, then add the URL and key here",
+  "frequency": "",
   "marketImage": "[OPTIONAL_S3_URL]",
   "marketImageKey": "[OPTIONAL_S3_KEY]"
 }

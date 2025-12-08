@@ -14,7 +14,7 @@ import CONFIG from '../config/env';
 // Use dynamic config based on ENVIRONMENT flag
 const PACKAGE_ID = CONFIG.packageId;
 const MARKET_REGISTRY = CONFIG.marketRegistry;
-const ADMIN_CAP = CONFIG.adminCap;
+const CREATOR_CAP = CONFIG.creatorCap;
 const USDC_TYPE = CONFIG.usdcType;
 const NETWORK = CONFIG.suiNetwork;
 const API_BASE_URL = CONFIG.apiBaseUrl;
@@ -59,6 +59,9 @@ interface MarketConfig {
   // NEW: Image fields (upload image manually first to get URL)
   marketImage?: string;           // Full S3 URL (e.g., https://skepsis-markets.s3.us-east-1.amazonaws.com/markets/abc-123.jpg)
   marketImageKey?: string;        // S3 key (e.g., markets/abc-123.jpg)
+  
+  // NEW: Frequency field for recurring markets
+  frequency?: string;             // "hourly" | "weekly" | "monthly" | empty/null for one-time markets
   
   // Simple distribution configuration
   useSimpleDistribution?: boolean;   // Default: false
@@ -114,39 +117,15 @@ async function createMarket(config: MarketConfig) {
   console.log(`⏰ Bidding Deadline: ${new Date(biddingDeadline).toISOString()}`);
   console.log(`⏰ Resolution Time: ${new Date(resolutionTime).toISOString()}`);
   
-  // Step 1: Create Creator Capability
-  console.log('\n🔧 Step 1/3: Creating Creator Capability...');
-  
-  const creatorCapTx = new Transaction();
-  creatorCapTx.moveCall({
-    target: `${PACKAGE_ID}::registry::create_creator_cap_entry`,
-    arguments: [
-      creatorCapTx.object(ADMIN_CAP),
-      creatorCapTx.pure.address(signerAddress),
-    ]
-  });
-  
-  const creatorCapResult = await client.signAndExecuteTransaction({
-    signer: keypair,
-    transaction: creatorCapTx,
-    options: { showObjectChanges: true },
-    requestType: 'WaitForLocalExecution'
-  });
-  
-  const creatorCapObj = creatorCapResult.objectChanges?.find(
-    (change: any) => change.type === 'created' && 
-    change.objectType?.includes('::registry::CreatorCap')
-  );
-  
-  if (!creatorCapObj) {
-    throw new Error('CreatorCap not found');
+  // Validate Creator Cap exists
+  if (!CREATOR_CAP) {
+    throw new Error('CREATOR_CAP not set in .env. Run: npm run admin:create-creator-cap');
   }
   
-  const creatorCapId = (creatorCapObj as any).objectId;
-  console.log(`✅ Creator Cap: ${creatorCapId.slice(0, 10)}...`);
+  console.log(`\n🔑 Using Creator Cap: ${CREATOR_CAP.slice(0, 10)}...`);
   
-  // Step 2: Get USDC coins
-  console.log('\n💰 Step 2/3: Preparing USDC liquidity...');
+  // Step 1: Get USDC coins
+  console.log('\n💰 Step 1/2: Preparing USDC liquidity...');
   
   const usdcCoins = await client.getCoins({
     owner: signerAddress,
@@ -169,8 +148,8 @@ async function createMarket(config: MarketConfig) {
     throw new Error('Insufficient USDC balance');
   }
   
-  // Step 3: Create Market
-  console.log('\n📊 Step 3/3: Creating market on-chain...');
+  // Step 2: Create Market
+  console.log('\n📊 Step 2/2: Creating market on-chain...');
   
   const marketTx = new Transaction();
   
@@ -201,7 +180,7 @@ async function createMarket(config: MarketConfig) {
   marketTx.moveCall({
     target: `${PACKAGE_ID}::registry::create_market_entry`,
     arguments: [
-      marketTx.object(creatorCapId),
+      marketTx.object(CREATOR_CAP),
       marketTx.object(MARKET_REGISTRY),
       marketTx.pure.string(config.question),
       marketTx.pure.string(config.description),
@@ -245,12 +224,12 @@ async function createMarket(config: MarketConfig) {
   console.log(`✅ Market Created: ${marketId}`);
   console.log(`✅ Transaction: ${marketResult.digest}`);
   
-  // Step 4: Register in backend API
-  console.log('\n🌐 Step 4/4: Registering in backend API...');
+  // Step 3: Register in backend API
+  console.log('\n🌐 Step 3/3: Registering in backend API...');
 
   const apiPayload = {
     marketId: marketId,
-    creatorCapId: creatorCapId,
+    creatorCapId: CREATOR_CAP,
     packageId: PACKAGE_ID,
     network: NETWORK,
     createdAt: Date.now().toString(),
@@ -278,6 +257,8 @@ async function createMarket(config: MarketConfig) {
       valuePrefix: config.valuePrefix || "$",
       valueSuffix: config.valueSuffix || "",
       useKSuffix: config.useKSuffix ?? true,  // Default to true for backwards compatibility
+      // NEW: Frequency field (optional, for recurring markets)
+      ...(config.frequency && { frequency: config.frequency }),
       // NEW: Image fields (optional, upload manually to avoid duplicates)
       ...(config.marketImage && { marketImage: config.marketImage }),
       ...(config.marketImageKey && { marketImageKey: config.marketImageKey })
@@ -316,7 +297,7 @@ async function createMarket(config: MarketConfig) {
   console.log(`✅ Liquidity: ${config.initialLiquidity / 1_000_000} USDC`);
   console.log(`✅ Network: ${NETWORK}`);
   
-  return { marketId, creatorCapId, transactionDigest: marketResult.digest };
+  return { marketId, creatorCapId: CREATOR_CAP, transactionDigest: marketResult.digest };
 }
 
 // CLI interface

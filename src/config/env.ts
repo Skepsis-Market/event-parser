@@ -45,6 +45,8 @@ export const CONFIG = {
   packageId: getConfig('PACKAGE_ID'),
   marketRegistry: getConfig('MARKET_REGISTRY'),
   adminCap: getConfig('ADMIN_CAP'),
+  creatorCap: process.env[`${ENVIRONMENT.toUpperCase()}_CREATOR_CAP`] || '',
+  seriesId: process.env[`${ENVIRONMENT.toUpperCase()}_SERIES_ID`] || '',
   usdcType: getConfig('USDC_TYPE'),
 
   // API

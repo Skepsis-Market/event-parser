@@ -18,6 +18,7 @@
   "valuePrefix": "$",
   "valueSuffix": "",
   "useKSuffix": true,
+  "frequency": "weekly",
   "marketImage": "[OPTIONAL_S3_URL]",
   "marketImageKey": "[OPTIONAL_S3_KEY]"
 }

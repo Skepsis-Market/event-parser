@@ -12,14 +12,13 @@
   "creatorFeeBasisPoints": 50,
   "decimalPrecision": 2,
   "valueUnit": "Percent",
-  "useSimpleDistribution": true,
   "priceFeed": "[BLS_API_URL or TRADING_ECONOMICS_URL]",
   "resolutionCriteria": "This market resolves using the official year-over-year CPI inflation rate published by the U.S. Bureau of Labor Statistics (BLS) for [MONTH] [YEAR].\n\nThe final rate will be scaled to 2 decimal places (e.g., 3.25% = 325) for settlement.\nOnly the official BLS CPI release will be used as the data source.\nRevisions published after the initial release will not affect resolution.\nMarket range: [MIN_VALUE_FORMATTED]% - [MAX_VALUE_FORMATTED]%",
   "valueType": "percentage",
   "valuePrefix": "",
   "valueSuffix": "%",
   "useKSuffix": false,
-  "_comment_image": "Optional: Upload image first using POST /api/markets/upload-image, then add the URL and key here",
+  "frequency": "monthly",
   "marketImage": "[OPTIONAL_S3_URL]",
   "marketImageKey": "[OPTIONAL_S3_KEY]"
 }

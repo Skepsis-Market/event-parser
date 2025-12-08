@@ -12,14 +12,13 @@
   "creatorFeeBasisPoints": 50,
   "decimalPrecision": 0,
   "valueUnit": "USD",
-  "useSimpleDistribution": true,
-  "priceFeed": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true",
+  "priceFeed": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
   "resolutionCriteria": "This market resolves using the Ethereum (ETH/USD) price reported by CoinGecko at [TIME] UTC on [DATE].\n\nThe final price will be floored to the nearest dollar for settlement.\nOnly the CoinGecko API will be used as the data source.\nIn case of any downtime, the last available price before resolution will be used.\nMarket range: $[MIN_VALUE_FORMATTED] - $[MAX_VALUE_FORMATTED]",
   "valueType": "currency",
   "valuePrefix": "$",
   "valueSuffix": "",
   "useKSuffix": true,
-  "_comment_image": "Optional: Upload image first using POST /api/markets/upload-image, then add the URL and key here",
+  "frequency": "weekly",
   "marketImage": "[OPTIONAL_S3_URL]",
   "marketImageKey": "[OPTIONAL_S3_KEY]"
 }

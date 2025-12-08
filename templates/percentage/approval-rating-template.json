@@ -12,14 +12,13 @@
   "creatorFeeBasisPoints": 50,
   "decimalPrecision": 2,
   "valueUnit": "Percent",
-  "useSimpleDistribution": true,
   "priceFeed": "[POLLING_AGGREGATOR_URL]",
   "resolutionCriteria": "This market resolves using the [POLL_SOURCE] average on [DATE].\n\nThe final percentage will be scaled to 2 decimal places (e.g., 45.6% = 4560) for settlement.\nOnly the specified polling aggregator will be used.\nIf multiple polls are published on resolution day, the average will be used.\nMarket range: [MIN_VALUE_FORMATTED]% - [MAX_VALUE_FORMATTED]%",
   "valueType": "percentage",
   "valuePrefix": "",
   "valueSuffix": "%",
   "useKSuffix": false,
-  "_comment_image": "Optional: Upload image first using POST /api/markets/upload-image, then add the URL and key here",
+  "frequency": "",
   "marketImage": "[OPTIONAL_S3_URL]",
   "marketImageKey": "[OPTIONAL_S3_KEY]"
 }

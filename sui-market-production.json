@@ -18,6 +18,7 @@
   "valuePrefix": "$",
   "valueSuffix": "",
   "useKSuffix": false,
+  "frequency": "weekly",
   "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/3f100f05-220e-41ba-aa7b-19bb35eea55a.png",
   "marketImageKey": "markets/3f100f05-220e-41ba-aa7b-19bb35eea55a.png"
 }

@@ -88,4 +88,6 @@ export interface WinningsClaimedEvent {
 export interface SuiEventId {
   txDigest: string;
   eventSeq: string;
+  timestampMs?: string;  // Blockchain timestamp in milliseconds
+  checkpoint?: string;   // Sui checkpoint sequence number
 }

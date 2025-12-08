@@ -12,9 +12,13 @@
     "test:db": "tsx src/test-connection.ts",
     "check:events": "tsx src/check-events.ts",
     "admin:create": "tsx src/admin/create-market.ts",
+    "admin:create-creator-cap": "tsx src/admin/create-creator-cap.ts",
     "admin:resolve": "tsx src/admin/resolve-market.ts",
     "admin:resolve-patch": "tsx src/admin/resolve-market-patch.ts",
-    "admin:distribute": "tsx src/admin/distribute-usdc.ts"
+    "admin:distribute": "tsx src/admin/distribute-usdc.ts",
+    "orchestrate:btc-hourly": "tsx src/orchestration/btc-hourly.ts",
+    "migrate:positions": "tsx src/scripts/migrate-positions.ts",
+    "sync:markets-cache": "tsx src/scripts/sync-markets-cache.ts"
   },
   "keywords": [],
   "author": "",
