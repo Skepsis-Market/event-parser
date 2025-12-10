@@ -5,6 +5,34 @@
  * 1. All position events are stored immutably in 'position_events'
  * 2. Current position state is computed and cached in 'user_positions'
  * 3. The 'trades' collection remains for backwards compatibility
+ * 
+ * =====================================================================
+ * CRITICAL: MICRO-UNITS CONVENTION (6 DECIMAL PRECISION)
+ * =====================================================================
+ * 
+ * All monetary values and share quantities are stored in MICRO-UNITS:
+ * - 1 USDC = 1,000,000 micro-USDC
+ * - 1 share = 1,000,000 micro-shares
+ * - Decimal precision: 6 places
+ * 
+ * WHY MICRO-UNITS?
+ * 1. Matches blockchain storage (no conversion needed)
+ * 2. Prevents floating-point precision issues
+ * 3. Frontend can use raw values directly for transactions
+ * 4. No ambiguity in calculations
+ * 
+ * IMPORTANT FOR PREDICTION MARKETS:
+ * When a user wins, 1 share pays out 1 USDC.
+ * At micro-unit level: 1 micro-share = 1 micro-USDC payout.
+ * Therefore: unrealized_pnl = total_shares - total_cost_basis (no conversion!)
+ * 
+ * CONVERSION FOR DISPLAY:
+ * - Display value = raw_value / 1,000,000
+ * - Example: 1054287500 micro-USDC = $1,054.29 USDC
+ * 
+ * TRANSACTION USAGE:
+ * Use raw micro-unit values directly in blockchain calls.
+ * =====================================================================
  */
 
 import { Db } from 'mongodb';
@@ -29,6 +57,9 @@ export interface PositionEvent {
   shares_delta: bigint; // Positive for buy, negative for sell
   usdc_delta: bigint;   // Cost paid (negative) or proceeds (positive)
   price_per_share: bigint;
+  
+  // PnL tracking (only for SHARES_SOLD and REWARDS_CLAIMED)
+  realized_pnl_delta?: bigint; // Profit/loss for this specific transaction
   
   // Sell-specific fields
   position_index?: number; // Array index used in contract (null for buys)
@@ -55,11 +86,15 @@ export interface UserPosition {
   total_shares_sold: bigint;
   total_proceeds: bigint;
   
+  // Unrealized PnL (only populated on market resolution)
+  unrealized_pnl?: bigint; // For winners: total_shares - total_cost_basis; For losers: -total_cost_basis
+  
   // Metadata
   first_purchase_at: bigint;
   last_updated_at: bigint;
   last_tx_digest: string;
-  is_active: boolean; // False if total_shares = 0
+  is_active: boolean; // False if total_shares = 0 or position closed
+  close_reason?: 'LOST_RESOLUTION' | 'CLAIMED'; // How the position was closed
   
   // For quick lookups
   market_name?: string; // Denormalized from markets collection
@@ -140,6 +175,13 @@ export async function createIndexes(db: Db): Promise<void> {
     { name: 'idx_market_active' }
   );
   console.log('✅ user_positions: index on (market_id, is_active)');
+  
+  // CRITICAL for market resolution performance (win/loss detection)
+  await positionsCollection.createIndex(
+    { market_id: 1, range_lower: 1, range_upper: 1, is_active: 1 },
+    { name: 'idx_market_range_active' }
+  );
+  console.log('✅ user_positions: index on (market_id, range_lower, range_upper, is_active)');
   
   await positionsCollection.createIndex(
     { last_updated_at: -1 },

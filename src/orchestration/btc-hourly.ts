@@ -106,8 +106,8 @@ function calculateMarketParams(currentPrice: number, creationTime: Date): Market
   const minValue = Math.round(rawMin / BUCKET_WIDTH) * BUCKET_WIDTH;
   const maxValue = Math.round(rawMax / BUCKET_WIDTH) * BUCKET_WIDTH;
   
-  // Resolution time is exactly 1 hour after creation
-  const resolutionTime = new Date(creationTime.getTime() + 60 * 60 * 1000);
+  // Resolution time is exactly 10 minutes after creation
+  const resolutionTime = new Date(creationTime.getTime() + 10 * 60 * 1000);
   
   return {
     currentPrice,
@@ -193,7 +193,7 @@ async function createHourlyMarket(params: MarketParams): Promise<string> {
     [marketTx.pure.u64(initialLiquidity)]
   );
   
-  const biddingDeadline = params.resolutionTime.getTime() - 60_000; // 1 minute before resolution
+  const biddingDeadline = params.resolutionTime.getTime() - 60_000; // 9 minutes bidding window (1 min before 10 min resolution)
   const resolutionTime = params.resolutionTime.getTime();
   
   const hourStr = params.creationTime.getUTCHours().toString().padStart(2, '0');
@@ -306,7 +306,7 @@ async function createHourlyMarket(params: MarketParams): Promise<string> {
     // Update series active market if series exists
     if (SERIES_ID) {
       console.log('🔄 Updating series active market...');
-      const nextSpawnTime = params.resolutionTime.getTime() + 60_000; // 1 minute after resolution
+      const nextSpawnTime = params.resolutionTime.getTime() + 60_000; // 1 minute after 10-minute resolution
       
       await axios.patch(
         `${API_BASE_URL}/api/series/${SERIES_ID}/active-market`,
@@ -341,30 +341,32 @@ async function createHourlyMarket(params: MarketParams): Promise<string> {
 }
 
 /**
- * Calculate milliseconds until next 5-minute interval (for testing)
+ * Calculate milliseconds until next 10-minute interval
  */
-function msUntilNextHour(): number {
+function msUntilNextInterval(): number {
   const now = new Date();
-  const next5Min = new Date(now);
+  const nextInterval = new Date(now);
   const currentMinute = now.getMinutes();
-  const nextInterval = Math.ceil((currentMinute + 1) / 5) * 5;
-  next5Min.setMinutes(nextInterval, 0, 0);
-  if (nextInterval >= 60) {
-    next5Min.setHours(now.getHours() + 1);
+  const nextIntervalMin = Math.ceil((currentMinute + 1) / 10) * 10;
+  nextInterval.setMinutes(nextIntervalMin, 0, 0);
+  if (nextIntervalMin >= 60) {
+    nextInterval.setHours(now.getHours() + 1);
   }
-  return next5Min.getTime() - now.getTime();
+  return nextInterval.getTime() - now.getTime();
 }
 
 /**
  * Main orchestration loop
  */
 async function orchestrate() {
-  console.log('🤖 BTC Hourly Market Orchestrator (TEST MODE: 5min intervals)');
+  console.log('🤖 BTC Market Orchestrator (10-minute intervals)');
   console.log('═══════════════════════════════════');
   console.log(`🌐 Network: ${NETWORK}`);
   console.log(`📊 Bucket Count: ${BUCKET_COUNT}`);
   console.log(`📏 Bucket Width: $${BUCKET_WIDTH}`);
   console.log(`📐 Total Range: ±$${HALF_RANGE} ($${TOTAL_RANGE} total)`);
+  console.log(`⏱️  Bidding Window: 9 minutes`);
+  console.log(`⏱️  Resolution: 10th minute`);
   
   // Validate Creator Cap
   if (!CREATOR_CAP) {
@@ -391,10 +393,10 @@ async function orchestrate() {
     console.log('To enable series tracking: POST /api/series and add ID to .env');
   }
   
-  console.log('\n⏳ Waiting for next 5-minute interval...\n');
+  console.log('\n⏳ Waiting for next 10-minute interval...\n');
   
-  // Wait until next 5-minute interval if not already there
-  const msToWait = msUntilNextHour();
+  // Wait until next 10-minute interval if not already there
+  const msToWait = msUntilNextInterval();
   if (msToWait > 1000) {
     const endTime = Date.now() + msToWait;
     
@@ -418,9 +420,9 @@ async function orchestrate() {
   while (true) {
     try {
       const creationTime = new Date();
-      // Round to current 5-minute interval for testing
+      // Round to current 10-minute interval
       const currentMinute = creationTime.getMinutes();
-      const intervalMinute = Math.floor(currentMinute / 5) * 5;
+      const intervalMinute = Math.floor(currentMinute / 10) * 10;
       creationTime.setMinutes(intervalMinute, 0, 0);
       
       console.log(`\n⏰ ${creationTime.toISOString()} - Starting market creation...`);
@@ -428,22 +430,18 @@ async function orchestrate() {
       // Fetch current price
       const currentPrice = await fetchBTCPrice();
       
-      // Calculate parameters (resolution in 5 minutes for testing)
-      const testResolutionTime = new Date(creationTime.getTime() + 5 * 60 * 1000);
-      const params = {
-        ...calculateMarketParams(currentPrice, creationTime),
-        resolutionTime: testResolutionTime
-      };
+      // Calculate parameters (resolution in 10 minutes)
+      const params = calculateMarketParams(currentPrice, creationTime);
       
-      console.log(`📅 Bidding closes: ${new Date(testResolutionTime.getTime() - 60_000).toISOString()}`);
-      console.log(`📅 Resolution: ${testResolutionTime.toISOString()}`);
+      console.log(`📅 Bidding closes: ${new Date(params.resolutionTime.getTime() - 60_000).toISOString()}`);
+      console.log(`📅 Resolution: ${params.resolutionTime.toISOString()}`);
       
       // Create market
       await createHourlyMarket(params);
       
-      // Wait until next 5-minute interval with live countdown
-      console.log(`\n⏳ Waiting for next 5-minute interval...`);
-      const waitTime = 5 * 60 * 1000;
+      // Wait until next 10-minute interval with live countdown
+      console.log(`\n⏳ Waiting for next 10-minute interval...`);
+      const waitTime = 10 * 60 * 1000;
       const endTime = Date.now() + waitTime;
       
       const countdown = setInterval(() => {
@@ -464,8 +462,8 @@ async function orchestrate() {
       
     } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}`);
-      console.log('⏳ Retrying in 5 minutes...\n');
-      await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000));
+      console.log('⏳ Retrying in 10 minutes...\n');
+      await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
     }
   }
 }

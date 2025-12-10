@@ -86,7 +86,7 @@ export class PositionTracker {
     txDigest: string;
     positionIndex?: number;
     isFifoSell: boolean;
-  }): Promise<void> {
+  }): Promise<{ realizedPnlDelta: bigint }> {
     const { userAddress, marketId, rangeLower, rangeUpper, sharesSold, proceeds, timestamp, txDigest, isFifoSell } = params;
 
     // Find the position
@@ -99,7 +99,7 @@ export class PositionTracker {
 
     if (!position) {
       console.warn(`   ⚠️  Position not found for sale (user: ${userAddress.slice(0, 10)}..., market: ${marketId.slice(0, 10)}...)`);
-      return;
+      return { realizedPnlDelta: 0n };
     }
 
     // Calculate realized PnL using weighted average cost basis
@@ -144,6 +144,8 @@ export class PositionTracker {
     const pnlSign = realizedPnl >= 0n ? '+' : '';
     const pnlUsd = Number(realizedPnl) / 1_000_000;
     console.log(`   💰 Position updated: -${sharesSold} shares, PnL: ${pnlSign}$${pnlUsd.toFixed(2)} (${isFifoSell ? 'FIFO' : 'targeted'})`);
+    
+    return { realizedPnlDelta: realizedPnl };
   }
 
   /**
@@ -158,7 +160,7 @@ export class PositionTracker {
     payoutAmount: bigint;
     timestamp: bigint;
     txDigest: string;
-  }): Promise<void> {
+  }): Promise<{ realizedPnlDelta: bigint }> {
     const { userAddress, marketId, rangeLower, rangeUpper, sharesClaimed, payoutAmount, timestamp, txDigest } = params;
 
     // Find the position
@@ -171,13 +173,12 @@ export class PositionTracker {
 
     if (!position) {
       console.warn(`   ⚠️  Position not found for claim (user: ${userAddress.slice(0, 10)}..., market: ${marketId.slice(0, 10)}...)`);
-      return;
+      return { realizedPnlDelta: 0n };
     }
 
-    // Calculate realized PnL from claim
-    const currentCostBasis = BigInt(position.total_cost_basis);
-    const realizedPnl = payoutAmount - currentCostBasis;
-
+    // Move unrealized_pnl → realized_pnl (as per alignment doc State 6)
+    const unrealizedPnl = BigInt(position.unrealized_pnl || 0n);
+    
     // Mark position as fully closed
     await this.db.collection('user_positions').updateOne(
       { _id: position._id },
@@ -186,21 +187,25 @@ export class PositionTracker {
           total_shares: 0n,
           total_cost_basis: 0n,
           avg_entry_price: 0,
+          unrealized_pnl: 0n,
           is_active: false,
+          close_reason: 'CLAIMED',
           last_updated_at: timestamp,
           last_tx_digest: txDigest,
         },
         $inc: {
-          realized_pnl: realizedPnl,
+          realized_pnl: unrealizedPnl, // Move unrealized to realized
           total_shares_sold: sharesClaimed,
           total_proceeds: payoutAmount,
         },
       }
     );
 
-    const pnlSign = realizedPnl >= 0n ? '+' : '';
-    const pnlUsd = Number(realizedPnl) / 1_000_000;
-    console.log(`   🏆 Position closed: ${sharesClaimed} shares claimed, PnL: ${pnlSign}$${pnlUsd.toFixed(2)}`);
+    const pnlSign = unrealizedPnl >= 0n ? '+' : '';
+    const pnlUsd = Number(unrealizedPnl) / 1_000_000;
+    console.log(`   🏆 Position closed: ${sharesClaimed} shares claimed, Final PnL: ${pnlSign}$${pnlUsd.toFixed(2)}`);
+    
+    return { realizedPnlDelta: unrealizedPnl };
   }
 
   /**
@@ -264,6 +269,86 @@ export class PositionTracker {
     );
 
     console.log(`   ✅ Market cache updated: resolved at ${resolvedValue}`);
+  }
+
+  /**
+   * Close losing positions (resolved value outside their range)
+   * Uses bulk operation for performance - handles 100K+ positions efficiently
+   */
+  async closeLosingPositions(marketId: string, resolvedValue: bigint): Promise<{ modifiedCount: number }> {
+    const startTime = Date.now();
+    
+    // Single bulk operation - MongoDB handles internally
+    const result = await this.db.collection('user_positions').updateMany(
+      {
+        market_id: marketId,
+        is_active: true,
+        $or: [
+          { range_lower: { $gt: resolvedValue } },  // Range starts above resolved
+          { range_upper: { $lt: resolvedValue } }   // Range ends below resolved
+        ]
+      },
+      [
+        {
+          $set: {
+            is_active: false,
+            // Calculate 100% loss: unrealized_pnl = -total_cost_basis
+            unrealized_pnl: { $multiply: [{ $toLong: '$total_cost_basis' }, -1] },
+            closed_at: BigInt(Date.now()),
+            close_reason: 'LOST_RESOLUTION'
+          }
+        }
+      ]
+    );
+
+    const duration = Date.now() - startTime;
+    console.log(`   💀 Closed ${result.modifiedCount} losing positions (${duration}ms)`);
+    
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /**
+   * Calculate unrealized PnL for winning positions (resolved value in their range)
+   * Positions stay active until user claims
+   * 
+   * IMPORTANT: In prediction markets, 1 winning share pays out 1 USDC.
+   * Both total_shares and total_cost_basis are already stored in micro-units (6 decimals).
+   * Therefore: 1 micro-share = 1 micro-USDC payout at resolution.
+   * No conversion needed - direct subtraction.
+   */
+  async calculateWinningPositions(marketId: string, resolvedValue: bigint): Promise<{ modifiedCount: number }> {
+    const startTime = Date.now();
+    
+    // Find winning positions (resolved value within range)
+    const result = await this.db.collection('user_positions').updateMany(
+      {
+        market_id: marketId,
+        is_active: true,
+        range_lower: { $lte: resolvedValue },
+        range_upper: { $gte: resolvedValue }
+      },
+      [
+        {
+          $set: {
+            // Both values already in micro-units (6 decimals precision)
+            // 1 micro-share pays 1 micro-USDC when user wins
+            // unrealized_pnl = total_shares - total_cost_basis
+            unrealized_pnl: {
+              $subtract: [
+                { $toLong: '$total_shares' },
+                { $toLong: '$total_cost_basis' }
+              ]
+            }
+            // is_active stays true until claimed
+          }
+        }
+      ]
+    );
+
+    const duration = Date.now() - startTime;
+    console.log(`   🏆 Updated ${result.modifiedCount} winning positions (${duration}ms)`);
+    
+    return { modifiedCount: result.modifiedCount };
   }
 
   /**

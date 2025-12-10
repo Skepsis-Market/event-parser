@@ -18,7 +18,15 @@
     "admin:distribute": "tsx src/admin/distribute-usdc.ts",
     "orchestrate:btc-hourly": "tsx src/orchestration/btc-hourly.ts",
     "migrate:positions": "tsx src/scripts/migrate-positions.ts",
-    "sync:markets-cache": "tsx src/scripts/sync-markets-cache.ts"
+    "sync:markets-cache": "tsx src/scripts/sync-markets-cache.ts",
+    "retry:position-updates": "tsx src/scripts/retry-failed-position-updates.ts",
+    "fix:winning-positions": "tsx src/scripts/fix-winning-positions.ts",
+    "verify:schema": "tsx src/scripts/verify-schema-alignment.ts",
+    "test:pnl-delta": "tsx src/scripts/test-realized-pnl-delta.ts",
+    "backfill:pnl-delta": "tsx src/scripts/backfill-realized-pnl-delta.ts",
+    "diagnose:orphaned-sells": "tsx src/scripts/diagnose-orphaned-sells.ts",
+    "fix:betplaced-event-type": "tsx src/scripts/fix-betplaced-event-type.ts",
+    "deploy:production": "tsx src/scripts/deploy-to-production.ts"
   },
   "keywords": [],
   "author": "",

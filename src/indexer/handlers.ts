@@ -44,7 +44,7 @@ export class EventHandlers {
         tx_digest: eventId.txDigest,
         checkpoint: BigInt(eventId.checkpoint || eventId.eventSeq || 0),
         timestamp: timestamp,
-        event_type: 'SHARES_SOLD',
+        event_type: 'SHARES_PURCHASED',
         user_address: event.user,
         position_store_id: event.position_store_id || null,
         market_id: event.market_id,
@@ -116,7 +116,21 @@ export class EventHandlers {
         indexed_at: new Date()
       });
       
-      // 2. Insert into position_events
+      // 2. Update user_positions and get realized PnL
+      const saleResult = await this.positionTracker.handleSale({
+        userAddress: event.user,
+        marketId: event.market_id,
+        rangeLower,
+        rangeUpper,
+        sharesSold,
+        proceeds,
+        timestamp,
+        txDigest: eventId.txDigest,
+        positionIndex: isFifoSell ? undefined : Number(positionIndex),
+        isFifoSell
+      });
+      
+      // 3. Insert into position_events with realized PnL
       await this.db.collection('position_events').insertOne({
         tx_digest: eventId.txDigest,
         checkpoint: BigInt(eventId.eventSeq),
@@ -132,24 +146,11 @@ export class EventHandlers {
         price_per_share: BigInt(event.price_per_share),
         position_index: isFifoSell ? null : Number(positionIndex),
         is_fifo_sell: isFifoSell,
+        realized_pnl_delta: saleResult.realizedPnlDelta,
         indexed_at: new Date()
       });
       
-      // 3. Update user_positions
-      await this.positionTracker.handleSale({
-        userAddress: event.user,
-        marketId: event.market_id,
-        rangeLower,
-        rangeUpper,
-        sharesSold,
-        proceeds,
-        timestamp,
-        txDigest: eventId.txDigest,
-        positionIndex: isFifoSell ? undefined : Number(positionIndex),
-        isFifoSell
-      });
-      
-      console.log(`✅ SharesSold indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`);
+      console.log(`✅ SharesSold indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`)
     } catch (error: any) {
       if (error.code === 11000) {
         console.log(`⚠️  Duplicate SharesSold event (tx: ${eventId.txDigest})`);
@@ -188,7 +189,19 @@ export class EventHandlers {
         indexed_at: new Date()
       });
       
-      // 2. Insert into position_events
+      // 2. Update user_positions and get realized PnL
+      const claimResult = await this.positionTracker.handleClaim({
+        userAddress: event.user,
+        marketId: event.market_id,
+        rangeLower,
+        rangeUpper,
+        sharesClaimed,
+        payoutAmount,
+        timestamp,
+        txDigest: eventId.txDigest
+      });
+      
+      // 3. Insert into position_events with realized PnL
       await this.db.collection('position_events').insertOne({
         tx_digest: eventId.txDigest,
         checkpoint: BigInt(eventId.checkpoint || eventId.eventSeq || 0),
@@ -202,22 +215,11 @@ export class EventHandlers {
         shares_delta: -sharesClaimed, // Shares removed
         usdc_delta: payoutAmount, // Payout received
         price_per_share: BigInt(1_000_000),
+        realized_pnl_delta: claimResult.realizedPnlDelta,
         indexed_at: new Date()
       });
       
-      // 3. Update user_positions (close position)
-      await this.positionTracker.handleClaim({
-        userAddress: event.user,
-        marketId: event.market_id,
-        rangeLower,
-        rangeUpper,
-        sharesClaimed,
-        payoutAmount,
-        timestamp,
-        txDigest: eventId.txDigest
-      });
-      
-      console.log(`✅ WinningsClaimed indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`);
+      console.log(`✅ WinningsClaimed indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`)
     } catch (error: any) {
       if (error.code === 11000) {
         console.log(`⚠️  Duplicate WinningsClaimed event (tx: ${eventId.txDigest})`);
@@ -229,9 +231,8 @@ export class EventHandlers {
 
   async handleMarketResolved(event: any, eventId: any): Promise<void> {
     try {
-      // Sync resolution to backend API
-      const apiUrl = `${CONFIG.apiBaseUrl}/api/markets/${event.market_id}/status`;
-
+      const marketId = event.market_id;
+      
       // V12 contract emits 'winning_outcome', older versions used 'resolution_value'
       const resolvedValueRaw = event.winning_outcome ?? event.resolution_value ?? event.resolved_value ?? event.value ?? event.result_value;
       const resolvedValue = resolvedValueRaw !== undefined ? Number(resolvedValueRaw) : undefined;
@@ -241,12 +242,13 @@ export class EventHandlers {
         return;
       }
       
-      // Update markets_cache with resolution
-      await this.positionTracker.updateMarketResolution(
-        event.market_id,
-        BigInt(resolvedValue)
-      );
+      const resolvedValueBigInt = BigInt(resolvedValue);
       
+      // 1. Update markets_cache (immediate, fast)
+      await this.positionTracker.updateMarketResolution(marketId, resolvedValueBigInt);
+      
+      // 2. Sync to backend API (immediate, fast)
+      const apiUrl = `${CONFIG.apiBaseUrl}/api/markets/${marketId}/status`;
       await axios.patch(
         apiUrl,
         {
@@ -262,7 +264,11 @@ export class EventHandlers {
         }
       );
       
-      console.log(`✅ MarketResolved synced to API: ${event.market_id} → ${resolvedValue}`);
+      console.log(`✅ MarketResolved synced to API: ${marketId} → ${resolvedValue}`);
+      
+      // 3. Update all positions (heavy, non-blocking)
+      this.queuePositionUpdates(marketId, resolvedValueBigInt);
+      
     } catch (error: any) {
       if (error.response) {
         console.error(`⚠️  API sync failed (${error.response.status}): ${error.message}`);
@@ -273,6 +279,55 @@ export class EventHandlers {
       }
       // Don't throw - market is resolved on-chain regardless of API sync
     }
+  }
+
+  /**
+   * Queue position updates for resolved market (non-blocking)
+   * Uses setImmediate to avoid blocking event processing
+   */
+  private queuePositionUpdates(marketId: string, resolvedValue: bigint): void {
+    setImmediate(async () => {
+      const startTime = Date.now();
+      
+      try {
+        console.log(`🔄 Processing position updates for ${marketId.slice(0, 10)}...`);
+        
+        // Bulk operation 1: Close losing positions
+        const lostResult = await this.positionTracker.closeLosingPositions(
+          marketId, 
+          resolvedValue
+        );
+        
+        // Bulk operation 2: Calculate winning positions
+        const wonResult = await this.positionTracker.calculateWinningPositions(
+          marketId, 
+          resolvedValue
+        );
+        
+        const totalUpdated = lostResult.modifiedCount + wonResult.modifiedCount;
+        const duration = Date.now() - startTime;
+        
+        console.log(`✅ Position updates complete: ${totalUpdated} positions updated in ${duration}ms`);
+        
+      } catch (error: any) {
+        console.error(`❌ Position update failed for ${marketId}:`, error);
+        
+        // Store failure for manual retry
+        try {
+          await this.db.collection('failed_position_updates').insertOne({
+            marketId,
+            resolvedValue: resolvedValue.toString(),
+            error: error.message,
+            stack: error.stack,
+            timestamp: new Date(),
+            retryCount: 0
+          });
+          console.log(`   📝 Failure logged for retry`);
+        } catch (logError) {
+          console.error(`   ❌ Failed to log error:`, logError);
+        }
+      }
+    });
   }
 
   async handleMarketCreated(event: any, eventId: any): Promise<void> {
