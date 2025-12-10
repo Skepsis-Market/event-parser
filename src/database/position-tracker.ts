@@ -277,6 +277,7 @@ export class PositionTracker {
    */
   async closeLosingPositions(marketId: string, resolvedValue: bigint): Promise<{ modifiedCount: number }> {
     const startTime = Date.now();
+    const closedTimestamp = BigInt(Date.now());
     
     // Single bulk operation - MongoDB handles internally
     const result = await this.db.collection('user_positions').updateMany(
@@ -292,10 +293,11 @@ export class PositionTracker {
         {
           $set: {
             is_active: false,
+            closed_at: closedTimestamp,
+            last_updated_at: closedTimestamp,
+            close_reason: 'LOST_RESOLUTION',
             // Calculate 100% loss: unrealized_pnl = -total_cost_basis
-            unrealized_pnl: { $multiply: [{ $toLong: '$total_cost_basis' }, -1] },
-            closed_at: BigInt(Date.now()),
-            close_reason: 'LOST_RESOLUTION'
+            unrealized_pnl: { $multiply: [{ $toLong: '$total_cost_basis' }, -1] }
           }
         }
       ]
