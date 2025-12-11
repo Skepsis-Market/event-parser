@@ -205,6 +205,8 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
   
   const dateStr = creationTime.toISOString().split('T')[0];
   const tomorrowDateStr = resolutionTime.toISOString().split('T')[0];
+  const resolutionTimeStr = resolutionTime.toISOString().replace('T', ' at ').split('.')[0] + ' UTC';
+  const resolutionHourMin = resolutionTime.toISOString().split('T')[1].substring(0, 5);
   
   // Determine decimal precision based on bucket width
   const decimalPrecision = bucketWidth < 1 ? 2 : 0;
@@ -220,8 +222,8 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     arguments: [
       marketTx.object(CREATOR_CAP),
       marketTx.object(MARKET_REGISTRY),
-      marketTx.pure.string(`What will be the price of ${crypto.name} (${crypto.symbol}/USD) at 11 PM UTC on ${tomorrowDateStr}?`),
-      marketTx.pure.string(`Predict ${crypto.name}'s price tomorrow at 11 PM UTC. Current price: $${currentPrice.toFixed(decimalPrecision)}`),
+      marketTx.pure.string(`What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${tomorrowDateStr}?`),
+      marketTx.pure.string(`Predict ${crypto.name}'s price at resolution. Current price: $${currentPrice.toFixed(decimalPrecision)}`),
       marketTx.pure.string('Cryptocurrency'),
       marketTx.pure.u8(0), // market_type
       marketTx.pure.u64(scaledMinValue),
@@ -275,11 +277,11 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     marketType: 'cryptocurrency',
     priceFeed: `https://api.coingecko.com/api/v3/simple/price?ids=${crypto.id}&vs_currencies=usd&include_24hr_change=true`,
     // NO seriesId, roundNumber, or isSeriesMaster
-    resolutionCriteria: `This market resolves using the ${crypto.name} (${crypto.symbol}/USD) price reported by CoinGecko at ${resolutionTime.toISOString()}.\n\nThe final price will be processed to the nearest ${bucketWidth < 1 ? 'cent' : 'dollar'} for settlement.\nOnly the CoinGecko API will be used as the data source.\nMarket range: $${minValue.toFixed(decimalPrecision)} - $${maxValue.toFixed(decimalPrecision)}`,
+    resolutionCriteria: `This market resolves using the ${crypto.name} (${crypto.symbol}/USD) price reported by CoinGecko at ${resolutionTimeStr}.\n\nThe final price will be processed to the nearest ${bucketWidth < 1 ? 'cent' : 'dollar'} for settlement.\nOnly the CoinGecko API will be used as the data source.\nMarket range: $${minValue.toFixed(decimalPrecision)} - $${maxValue.toFixed(decimalPrecision)}`,
     configuration: {
-      marketName: `${crypto.name} Daily - ${dateStr}`,
-      question: `What will be the price of ${crypto.name} (${crypto.symbol}/USD) at 11 PM UTC on ${tomorrowDateStr}?`,
-      description: `Predict ${crypto.name}'s price tomorrow at 11 PM UTC. Current price: $${currentPrice.toFixed(decimalPrecision)}`,
+      marketName: `${crypto.name} Market - ${dateStr} ${resolutionHourMin}`,
+      question: `What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${tomorrowDateStr}?`,
+      description: `Predict ${crypto.name}'s price at resolution. Current price: $${currentPrice.toFixed(decimalPrecision)}`,
       category: 'Cryptocurrency',
       minValue: minValue,
       maxValue: maxValue,
@@ -386,9 +388,9 @@ async function orchestrate() {
       const btcParams = calculateMarketParams(CRYPTO_CONFIGS.btc, btcPrice, creationTime);
       await createDailyMarket(btcParams);
       
-      // Wait 5 seconds between market creations
-      console.log('\n⏳ Waiting 5 seconds...\n');
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait 10 seconds between market creations to avoid coin version conflicts
+      console.log('\n⏳ Waiting 10 seconds for blockchain to finalize...\n');
+      await new Promise(resolve => setTimeout(resolve, 10000));
       
       // Create SUI market
       console.log('📈 Creating SUI Market...\n');
