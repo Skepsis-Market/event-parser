@@ -74,8 +74,6 @@ export class EventListener {
     const eventData = event.parsedJson;
     const eventId = event.id;
     
-    console.log(`\n📥 ${eventName} (tx: ${eventId.txDigest.slice(0, 10)}...)`);
-    
     // Route to appropriate handler
     switch (eventName) {
       case 'BET_PLACED':

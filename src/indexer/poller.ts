@@ -17,9 +17,57 @@ export class EventPoller {
   
   async start(): Promise<void> {
     console.log(`🚀 Starting event poller (HTTP polling mode)...`);
-    this.isRunning = true;
     
+    // Initialize cursors to latest checkpoint to skip historical events
+    await this.initializeCursors();
+    
+    this.isRunning = true;
     await this.poll();
+  }
+  
+  /**
+   * Initialize cursors from saved state in DB
+   * Strategy: Restore last cursor position per event type, or skip to latest if no state
+   */
+  private async initializeCursors(): Promise<void> {
+    console.log('🔍 Initializing event cursors...');
+    
+    // Try to restore saved cursors from DB
+    const savedState = await this.db.collection('poller_cursors').find({}).toArray();
+    
+    if (savedState.length > 0) {
+      console.log('   📌 Restoring saved cursor positions:');
+      for (const state of savedState) {
+        if (state.cursor) {
+          this.cursors.set(state.eventType, state.cursor);
+          console.log(`   ✓ ${state.eventType}: resumed from saved position`);
+        }
+      }
+      console.log('');
+      return;
+    }
+    
+    // No saved state - skip to latest to avoid reprocessing history
+    console.log('   ℹ️  No saved cursor state found');
+    console.log('   🚀 Skipping to latest checkpoint to avoid reprocessing history...\n');
+    
+    for (const [name, eventType] of Object.entries(EVENT_TYPES)) {
+      try {
+        const result = await this.suiClient.queryEvents({
+          query: { MoveEventType: eventType },
+          limit: 1,
+          order: 'descending'
+        });
+        
+        if (result.nextCursor) {
+          this.cursors.set(name, result.nextCursor);
+          console.log(`   ✓ ${name}: cursor set to latest`);
+        }
+      } catch (error) {
+        // Event type has no history yet
+      }
+    }
+    console.log('');
   }
   
   stop(): void {
@@ -67,6 +115,9 @@ export class EventPoller {
           // Update cursor for this specific event type
           if (result.nextCursor) {
             this.cursors.set(name, result.nextCursor);
+            
+            // Save cursor to DB for crash recovery
+            await this.saveCursor(name, result.nextCursor);
           }
         }
       } catch (error) {
@@ -79,11 +130,29 @@ export class EventPoller {
     }
   }
   
+  /**
+   * Save cursor position to DB for crash recovery
+   */
+  private async saveCursor(eventType: string, cursor: any): Promise<void> {
+    try {
+      await this.db.collection('poller_cursors').updateOne(
+        { eventType },
+        { 
+          $set: { 
+            cursor,
+            updated_at: new Date()
+          }
+        },
+        { upsert: true }
+      );
+    } catch (error) {
+      // Non-critical, don't throw
+    }
+  }
+  
   private async processEvent(eventName: string, event: any): Promise<void> {
     const eventData = event.parsedJson;
     const eventId = event.id;
-    
-    console.log(`\n📥 ${eventName} (tx: ${eventId.txDigest.slice(0, 10)}...)`);
     
     // Route to appropriate handler
     switch (eventName) {

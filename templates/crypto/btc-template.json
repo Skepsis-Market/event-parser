@@ -19,6 +19,6 @@
   "valueSuffix": "",
   "useKSuffix": true,
   "frequency": "weekly",
-  "marketImage": "[OPTIONAL_S3_URL]",
-  "marketImageKey": "[OPTIONAL_S3_KEY]"
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/bb2a2168-3ad9-438d-8aac-7a0e2ff8f6ef.png",
+  "marketImageKey": "markets/bb2a2168-3ad9-438d-8aac-7a0e2ff8f6ef.png"
 }

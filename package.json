@@ -10,6 +10,7 @@
     "reconcile": "tsx src/reconcile.ts",
     "dev": "tsx watch src/index.ts",
     "test:db": "tsx src/test-connection.ts",
+    "test:parallel": "tsx src/test-parallel-tx.ts",
     "check:events": "tsx src/check-events.ts",
     "admin:create": "tsx src/admin/create-market.ts",
     "admin:create-creator-cap": "tsx src/admin/create-creator-cap.ts",
@@ -27,7 +28,8 @@
     "backfill:pnl-delta": "tsx src/scripts/backfill-realized-pnl-delta.ts",
     "diagnose:orphaned-sells": "tsx src/scripts/diagnose-orphaned-sells.ts",
     "fix:betplaced-event-type": "tsx src/scripts/fix-betplaced-event-type.ts",
-    "deploy:production": "tsx src/scripts/deploy-to-production.ts"
+    "deploy:production": "tsx src/scripts/deploy-to-production.ts",
+    "split:gas": "tsx src/scripts/split-gas-coins.ts"
   },
   "keywords": [],
   "author": "",

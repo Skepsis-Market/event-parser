@@ -20,7 +20,8 @@ const API_BASE_URL = CONFIG.apiBaseUrl;
  */
 export async function resolveMarketOnChain(
   marketId: string,
-  resolvedValue: number
+  resolvedValue: number,
+  gasCoinId?: string
 ): Promise<string> {
   try {
     // Initialize client
@@ -52,6 +53,26 @@ export async function resolveMarketOnChain(
       ],
       typeArguments: [USDC_TYPE]
     });
+    
+    // CRITICAL: Set gas payment AFTER moveCall to override SDK auto-selection
+    if (gasCoinId) {
+      console.log(`💰 Using assigned gas coin: ${gasCoinId.slice(0, 10)}...`);
+      
+      const gasCoinObj = await client.getObject({
+        id: gasCoinId,
+        options: { showContent: true, showOwner: true }
+      });
+      
+      if (gasCoinObj.data) {
+        tx.setGasPayment([{
+          objectId: gasCoinId,
+          version: gasCoinObj.data.version,
+          digest: gasCoinObj.data.digest
+        }]);
+        
+        console.log(`   ✓ Gas payment set: version ${gasCoinObj.data.version}`);
+      }
+    }
     
     // Execute transaction
     const result = await client.signAndExecuteTransaction({
@@ -119,7 +140,8 @@ export async function updateBackendAPI(
  */
 export async function resolveMarket(
   marketId: string,
-  resolvedValue: number
+  resolvedValue: number,
+  gasCoinId?: string
 ): Promise<{ transactionDigest: string }> {
   console.log('\n🎯 Starting market resolution...');
   console.log(`═══════════════════════════════`);
@@ -128,7 +150,7 @@ export async function resolveMarket(
   
   try {
     // Step 1: Resolve on-chain
-    const transactionDigest = await resolveMarketOnChain(marketId, resolvedValue);
+    const transactionDigest = await resolveMarketOnChain(marketId, resolvedValue, gasCoinId);
     
     // Step 2: Update backend
     await updateBackendAPI(marketId, resolvedValue);

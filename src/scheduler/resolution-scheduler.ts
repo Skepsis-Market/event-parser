@@ -26,6 +26,8 @@ interface MarketData {
 class ResolutionScheduler {
   private scheduledJobs: Map<string, schedule.Job> = new Map();
   private db: Db | null = null;
+  private gasCoinPool: string[] = [];
+  private gasCoinIndex: number = 0;
   
   /**
    * Initialize scheduler with database connection
@@ -37,10 +39,92 @@ class ResolutionScheduler {
     // Create index on marketId for fast lookups
     await db.collection('scheduled_resolutions').createIndex({ marketId: 1 }, { unique: true });
     
+    // Initialize gas coin pool for parallel resolutions
+    await this.initializeGasCoinPool();
+    
     // Load and schedule pending resolutions from MongoDB
     await this.loadPendingResolutions();
     
     console.log(`✅ Resolution Scheduler initialized with ${this.scheduledJobs.size} scheduled jobs\n`);
+  }
+  
+  /**
+   * Initialize pool of gas coins for parallel transaction execution
+   */
+  private async initializeGasCoinPool(): Promise<void> {
+    const { suiClient } = await import('../sui/client');
+    const { Ed25519Keypair } = await import('@mysten/sui/keypairs/ed25519');
+    const { Transaction } = await import('@mysten/sui/transactions');
+    const CONFIG = (await import('../config/env')).default;
+    
+    const keypair = Ed25519Keypair.fromSecretKey(CONFIG.suiPrivateKey);
+    const address = keypair.toSuiAddress();
+    
+    // Fetch available SUI coins
+    const coins = await suiClient.getCoins({
+      owner: address,
+      coinType: '0x2::sui::SUI'
+    });
+    
+    console.log(`💰 Found ${coins.data.length} SUI coin(s) for gas`);
+    
+    // If we have multiple coins, use them directly
+    if (coins.data.length >= 3) {
+      this.gasCoinPool = coins.data.map(c => c.coinObjectId);
+      console.log(`✅ Using ${this.gasCoinPool.length} existing coins for parallel execution`);
+      this.gasCoinPool.forEach((coinId, idx) => {
+        console.log(`   Coin ${idx + 1}: ${coinId.slice(0, 10)}...${coinId.slice(-6)}`);
+      });
+      return;
+    }
+    
+    // If only 1-2 coins, split the largest one into multiple
+    console.log(`🔪 Splitting coins to create pool for parallel execution...`);
+    
+    const largestCoin = coins.data.sort((a, b) => Number(b.balance) - Number(a.balance))[0];
+    const splitAmount = 100_000_000; // 0.1 SUI per coin
+    const numSplits = 5;
+    
+    const tx = new Transaction();
+    // Use tx.gas to reference the gas coin being split - SDK handles this automatically
+    for (let i = 0; i < numSplits; i++) {
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(splitAmount)]);
+      tx.transferObjects([coin], tx.pure.address(address));
+    }
+    
+    await suiClient.signAndExecuteTransaction({
+      signer: keypair,
+      transaction: tx,
+      options: { showEffects: true },
+      requestType: 'WaitForLocalExecution'
+    });
+    
+    // Re-fetch all coins after split
+    const newCoins = await suiClient.getCoins({
+      owner: address,
+      coinType: '0x2::sui::SUI'
+    });
+    
+    this.gasCoinPool = newCoins.data.map(c => c.coinObjectId);
+    console.log(`✅ Created gas coin pool with ${this.gasCoinPool.length} coins`);
+  }
+  
+  /**
+   * Get next available gas coin from pool (round-robin, thread-safe)
+   */
+  getNextGasCoin(): string | null {
+    if (this.gasCoinPool.length === 0) {
+      console.log(`❌ Gas coin pool is EMPTY!`);
+      return null;
+    }
+    
+    // Atomically get and increment index to prevent race conditions
+    const currentIndex = this.gasCoinIndex;
+    const coin = this.gasCoinPool[currentIndex];
+    this.gasCoinIndex = (this.gasCoinIndex + 1) % this.gasCoinPool.length;
+    
+    console.log(`🎯 Assigned gas coin [${currentIndex}/${this.gasCoinPool.length}]: ${coin.slice(0, 10)}...${coin.slice(-6)}`);
+    return coin;
   }
   
   /**
@@ -82,8 +166,23 @@ class ResolutionScheduler {
       return;
     }
     
-    const resolutionDate = new Date(resolutionTime);
+    let resolutionDate = new Date(resolutionTime);
     const now = new Date();
+    
+    // Check if another market is already scheduled at this exact time
+    // If so, add a 2-second stagger to avoid gas coin conflicts
+    let staggerMs = 0;
+    for (const [existingMarketId, existingJob] of this.scheduledJobs.entries()) {
+      const existingTime = (existingJob as any).nextInvocation?.();
+      if (existingTime && Math.abs(existingTime.getTime() - resolutionDate.getTime()) < 1000) {
+        staggerMs += 2000; // Add 2 seconds per conflicting market
+      }
+    }
+    
+    if (staggerMs > 0) {
+      resolutionDate = new Date(resolutionDate.getTime() + staggerMs);
+      console.log(`   ⏱️  Staggered by ${staggerMs/1000}s to avoid gas coin conflict`);
+    }
     
     // If resolution time has passed, resolve immediately
     if (resolutionDate <= now) {
@@ -94,7 +193,12 @@ class ResolutionScheduler {
     
     // Schedule for future
     const job = schedule.scheduleJob(resolutionDate, async () => {
+      const actualTriggerTime = new Date();
+      const delay = actualTriggerTime.getTime() - resolutionDate.getTime();
       console.log(`\n⏰ Scheduled resolution triggered for market: ${marketId.slice(0, 10)}...`);
+      console.log(`   Scheduled: ${resolutionDate.toISOString()}`);
+      console.log(`   Actual: ${actualTriggerTime.toISOString()}`);
+      console.log(`   Delay: ${delay}ms`);
       await this.executeResolution(marketId);
       this.scheduledJobs.delete(marketId);
     });
@@ -176,7 +280,13 @@ class ResolutionScheduler {
       
       // Step 5: Resolve market
       console.log('🔧 Step 4/4: Resolving market on-chain...');
-      await resolveMarket(marketId, scaledPrice);
+      const gasCoin = this.getNextGasCoin();
+      if (gasCoin) {
+        console.log(`   → Using gas coin: ${gasCoin}`);
+      } else {
+        console.log(`   ⚠️  No gas coin assigned (pool empty or not initialized)`);
+      }
+      await resolveMarket(marketId, scaledPrice, gasCoin || undefined);
       
       // Update MongoDB: mark as resolved
       if (this.db) {

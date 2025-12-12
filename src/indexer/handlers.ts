@@ -71,7 +71,8 @@ export class EventHandlers {
       console.log(`✅ BetPlaced indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`);
     } catch (error: any) {
       if (error.code === 11000) {
-        console.log(`⚠️  Duplicate BetPlaced event (tx: ${eventId.txDigest})`);
+        // Silently ignore duplicate events (already processed)
+        return;
       } else {
         throw error;
       }
@@ -88,15 +89,6 @@ export class EventHandlers {
       const proceeds = BigInt(event.amount_received);
       const positionIndex = event.position_index;
       const isFifoSell = PositionTracker.isFifoSell(positionIndex);
-      
-      console.log(`📊 SharesSold event:`, {
-        user: event.user.slice(0, 10),
-        market: event.market_id.slice(0, 10),
-        shares: sharesSold.toString(),
-        proceeds: proceeds.toString(),
-        mode: isFifoSell ? 'FIFO' : `Index ${positionIndex}`,
-        tx: eventId.txDigest.slice(0, 10)
-      });
 
       // 1. Insert into legacy trades collection
       await this.db.collection('trades').insertOne({
@@ -153,7 +145,8 @@ export class EventHandlers {
       console.log(`✅ SharesSold indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`)
     } catch (error: any) {
       if (error.code === 11000) {
-        console.log(`⚠️  Duplicate SharesSold event (tx: ${eventId.txDigest})`);
+        // Silently ignore duplicate events (already processed)
+        return;
       } else {
         console.error(`❌ SharesSold handler error:`, error);
         console.error(`   Event data:`, event);
@@ -222,7 +215,8 @@ export class EventHandlers {
       console.log(`✅ WinningsClaimed indexed: ${event.user.slice(0, 10)}... on ${event.market_id.slice(0, 10)}...`)
     } catch (error: any) {
       if (error.code === 11000) {
-        console.log(`⚠️  Duplicate WinningsClaimed event (tx: ${eventId.txDigest})`);
+        // Silently ignore duplicate events (already processed)
+        return;
       } else {
         throw error;
       }
@@ -365,8 +359,8 @@ export class EventHandlers {
         console.log(`   ✅ Stored in MongoDB: scheduled_resolutions`);
       } catch (error: any) {
         if (error.code === 11000) {
-          console.log(`   ⚠️  Already scheduled (duplicate event)`);
-          return; // Skip scheduling if already exists
+          // Silently skip duplicate market events
+          return;
         } else {
           throw error;
         }
