@@ -17,7 +17,7 @@ const ADMIN_CAP = CONFIG.adminCap;
 const NETWORK = CONFIG.suiNetwork;
 const SUI_RPC_URL = CONFIG.suiRpcUrl;
 
-async function createCreatorCap(): Promise<string> {
+async function createCreatorCap(recipientAddress?: string): Promise<string> {
   console.log('🔧 Creating Creator Capability');
   console.log('═══════════════════════════════');
   console.log(`🌐 Network: ${NETWORK}`);
@@ -38,7 +38,11 @@ async function createCreatorCap(): Promise<string> {
   const keypair = Ed25519Keypair.fromSecretKey(privateKeyBase64);
   const signerAddress = keypair.getPublicKey().toSuiAddress();
   
-  console.log(`👤 Signer: ${signerAddress}\n`);
+  // Use provided recipient address or default to signer
+  const targetAddress = recipientAddress || signerAddress;
+  
+  console.log(`👤 Signer: ${signerAddress}`);
+  console.log(`🎯 Recipient: ${targetAddress}\n`);
   
   // Create creator capability
   console.log('📝 Creating transaction...');
@@ -47,7 +51,7 @@ async function createCreatorCap(): Promise<string> {
     target: `${PACKAGE_ID}::registry::create_creator_cap_entry`,
     arguments: [
       tx.object(ADMIN_CAP),
-      tx.pure.address(signerAddress),
+      tx.pure.address(targetAddress),
     ]
   });
   
@@ -124,13 +128,29 @@ async function updateEnvFile(creatorCapId: string) {
 
 async function main() {
   try {
-    const creatorCapId = await createCreatorCap();
-    await updateEnvFile(creatorCapId);
+    // Get recipient address from command line args
+    const recipientAddress = process.argv[2];
     
-    console.log('🎉 SUCCESS!');
-    console.log('═══════════════════════════════');
-    console.log('Creator capability has been created and saved to .env');
-    console.log('You can now use it for market creation without recreating each time.\n');
+    if (recipientAddress) {
+      console.log(`📋 Creating CreatorCap for address: ${recipientAddress}\n`);
+    }
+    
+    const creatorCapId = await createCreatorCap(recipientAddress);
+    
+    // Only update .env if no recipient address was provided (creating for self)
+    if (!recipientAddress) {
+      await updateEnvFile(creatorCapId);
+      console.log('🎉 SUCCESS!');
+      console.log('═══════════════════════════════');
+      console.log('Creator capability has been created and saved to .env');
+      console.log('You can now use it for market creation without recreating each time.\n');
+    } else {
+      console.log('🎉 SUCCESS!');
+      console.log('═══════════════════════════════');
+      console.log(`Creator capability created for ${recipientAddress}`);
+      console.log(`CreatorCap ID: ${creatorCapId}\n`);
+      console.log('⚠️  Note: .env was not updated since this was created for another address\n');
+    }
     
     process.exit(0);
   } catch (error: any) {

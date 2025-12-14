@@ -113,8 +113,14 @@ function calculateMarketParams(
     maxValue = totalRange;
   }
   
-  // Resolution time is 10 minutes from creation (testing)
-  const resolutionTime = new Date(creationTime.getTime() + 10 * 60 * 1000);
+  // Resolution time is absolute: next day at 11:00 PM UTC (23:00)
+  const resolutionTime = new Date(creationTime);
+  resolutionTime.setUTCHours(23, 0, 0, 0);
+  
+  // If we're already past 11 PM today, set it to tomorrow
+  if (resolutionTime.getTime() <= creationTime.getTime()) {
+    resolutionTime.setUTCDate(resolutionTime.getUTCDate() + 1);
+  }
   
   return {
     crypto,
@@ -199,7 +205,7 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     [marketTx.pure.u64(initialLiquidity)]
   );
   
-  // Both bidding and resolution at 11 PM UTC next day
+  // Bidding deadline at absolute time: next day at 11:00 PM UTC, same as resolution
   const biddingDeadline = resolutionTime.getTime();
   const resolutionTimeMs = resolutionTime.getTime();
   
@@ -332,26 +338,23 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
 }
 
 /**
- * Calculate milliseconds until next 10-minute interval (testing)
+ * Calculate milliseconds until next 10:30 PM UTC
  */
 function msUntil11PMUTC(): number {
   const now = new Date();
   const nextRun = new Date(now);
   
-  // Round up to next 10-minute interval
-  const currentMinutes = now.getUTCMinutes();
-  const nextInterval = Math.ceil((currentMinutes + 1) / 10) * 10;
+  // Set to 10:30 PM UTC (22:30)
+  nextRun.setUTCHours(22, 30, 0, 0);
   
-  if (nextInterval >= 60) {
-    nextRun.setUTCHours(nextRun.getUTCHours() + 1);
-    nextRun.setUTCMinutes(0, 0, 0);
-  } else {
-    nextRun.setUTCMinutes(nextInterval, 0, 0);
+  // If we've already passed 10:30 PM UTC today, schedule for tomorrow
+  if (nextRun.getTime() <= now.getTime()) {
+    nextRun.setUTCDate(nextRun.getUTCDate() + 1);
   }
   
   const msUntil = nextRun.getTime() - now.getTime();
   
-  console.log(`⏰ Next run: ${nextRun.toISOString()} (in ${Math.round(msUntil / 1000 / 60)} minutes)`);
+  console.log(`⏰ Next run: ${nextRun.toISOString()} (in ${Math.round(msUntil / 1000 / 60 / 60)} hours ${Math.round((msUntil / 1000 / 60) % 60)} minutes)`);
   
   return msUntil;
 }
@@ -376,7 +379,7 @@ async function orchestrate() {
   
   async function runDailyCreation() {
     console.log('\n╔════════════════════════════════════════════════╗');
-    console.log('║  🧪 TEST MARKET CREATION - 18:25 UTC          ║');
+    console.log('║  📅 DAILY MARKET CREATION - 10:30 PM UTC      ║');
     console.log('╚════════════════════════════════════════════════╝\n');
     
     const creationTime = new Date();
@@ -407,7 +410,7 @@ async function orchestrate() {
       }
     }
     
-    // Schedule next run
+    // Schedule next run (tomorrow at 10:30 PM UTC)
     const msUntilNext = msUntil11PMUTC();
     console.log(`\n⏰ Scheduling next run in ${Math.round(msUntilNext / 1000 / 60 / 60)} hours`);
     setTimeout(runDailyCreation, msUntilNext);
@@ -415,7 +418,9 @@ async function orchestrate() {
   
   // Calculate initial delay
   const initialDelay = msUntil11PMUTC();
-  console.log(`⏰ First run scheduled in ${Math.round(initialDelay / 1000 / 60)} minutes`);
+  const hoursUntil = Math.floor(initialDelay / 1000 / 60 / 60);
+  const minutesUntil = Math.round((initialDelay / 1000 / 60) % 60);
+  console.log(`⏰ First run scheduled in ${hoursUntil} hours ${minutesUntil} minutes`);
   console.log(`⏰ Will create markets at: ${new Date(Date.now() + initialDelay).toISOString()}\n`);
   
   setTimeout(runDailyCreation, initialDelay);
