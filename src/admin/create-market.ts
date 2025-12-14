@@ -254,8 +254,8 @@ async function createMarket(config: MarketConfig) {
       usdcType: USDC_TYPE,
       // NEW: Display formatting fields
       valueType: config.valueType || "currency",
-      valuePrefix: config.valuePrefix || "$",
-      valueSuffix: config.valueSuffix || "",
+      valuePrefix: config.valuePrefix !== undefined ? config.valuePrefix : "$",
+      valueSuffix: config.valueSuffix !== undefined ? config.valueSuffix : "",
       useKSuffix: config.useKSuffix ?? true,  // Default to true for backwards compatibility
       // NEW: Frequency field (optional, for recurring markets)
       ...(config.frequency && { frequency: config.frequency }),
