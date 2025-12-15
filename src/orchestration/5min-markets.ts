@@ -1,9 +1,10 @@
 #!/usr/bin/env ts-node
 
 /**
- * Daily Market Orchestration (11 PM UTC)
- * Creates BTC and SUI markets every day at 11 PM UTC
- * These markets are NOT associated with any series
+ * 5-Minute Market Orchestration (Testing)
+ * Creates BTC and SUI markets every 5 minutes
+ * Bidding deadline: 5 minutes after creation
+ * Resolution: 6 minutes after creation
  */
 
 import { Transaction } from '@mysten/sui/transactions';
@@ -59,6 +60,7 @@ interface MarketParams {
   bucketCount: number;
   bucketWidth: number;
   creationTime: Date;
+  biddingDeadline: Date;
   resolutionTime: Date;
 }
 
@@ -86,7 +88,6 @@ async function fetchCryptoPrice(cryptoId: string): Promise<number> {
 
 /**
  * Calculate market parameters based on current price
- * The midpoint bucket should contain the current price
  */
 function calculateMarketParams(
   crypto: CryptoConfig, 
@@ -121,11 +122,11 @@ function calculateMarketParams(
     maxValue = Math.round(totalRange);
   }
   
-  // Resolution time is absolute: NEXT day at 11:00 PM UTC (23:00)
-  // Script runs Dec 14 @ 10:30 PM → Resolution Dec 15 @ 11:00 PM
-  const resolutionTime = new Date(creationTime);
-  resolutionTime.setUTCDate(resolutionTime.getUTCDate() + 1);
-  resolutionTime.setUTCHours(23, 0, 0, 0);
+  // Bidding deadline: 5 minutes from creation (x+5)
+  const biddingDeadline = new Date(creationTime.getTime() + 5 * 60 * 1000);
+  
+  // Resolution time: 6 minutes from creation (x+6)
+  const resolutionTime = new Date(creationTime.getTime() + 6 * 60 * 1000);
   
   return {
     crypto,
@@ -135,23 +136,25 @@ function calculateMarketParams(
     bucketCount,
     bucketWidth,
     creationTime,
+    biddingDeadline,
     resolutionTime
   };
 }
 
 /**
- * Create daily crypto market
+ * Create 5-minute test market
  */
-async function createDailyMarket(params: MarketParams): Promise<string> {
-  const { crypto, currentPrice, minValue, maxValue, bucketCount, bucketWidth, creationTime, resolutionTime } = params;
+async function create5MinMarket(params: MarketParams): Promise<string> {
+  const { crypto, currentPrice, minValue, maxValue, bucketCount, bucketWidth, creationTime, biddingDeadline, resolutionTime } = params;
   
-  console.log(`\n🚀 Creating ${crypto.name} Daily Market`);
+  console.log(`\n🚀 Creating ${crypto.name} 5-Min Market`);
   console.log('═══════════════════════════════════════════');
   console.log(`📊 Current Price: $${currentPrice.toLocaleString()}`);
-  console.log(`📉 Min Value: $${minValue.toLocaleString()}`);
-  console.log(`📈 Max Value: $${maxValue.toLocaleString()}`);
+  console.log(`📉 Min Value: ${minValue}`);
+  console.log(`📈 Max Value: ${maxValue}`);
   console.log(`🪣 Buckets: ${bucketCount} x $${bucketWidth}`);
   console.log(`⏰ Creation: ${creationTime.toISOString()}`);
+  console.log(`⏰ Bidding Deadline: ${biddingDeadline.toISOString()}`);
   console.log(`⏰ Resolution: ${resolutionTime.toISOString()}`);
   
   // Initialize client
@@ -210,19 +213,17 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     [marketTx.pure.u64(initialLiquidity)]
   );
   
-  // Bidding deadline at absolute time: next day at 11:00 PM UTC (Dec 15), same as resolution
-  const biddingDeadline = resolutionTime.getTime();
+  const biddingDeadlineMs = biddingDeadline.getTime();
   const resolutionTimeMs = resolutionTime.getTime();
   
-  const dateStr = creationTime.toISOString().split('T')[0];
-  const tomorrowDateStr = resolutionTime.toISOString().split('T')[0];
   const resolutionTimeStr = resolutionTime.toISOString().replace('T', ' at ').split('.')[0] + ' UTC';
   const resolutionHourMin = resolutionTime.toISOString().split('T')[1].substring(0, 5);
+  const dateStr = resolutionTime.toISOString().split('T')[0];
   
   // Determine decimal precision based on bucket width
   const decimalPrecision = bucketWidth < 1 ? 2 : 0;
   
-  // Calculate bucket width as integer (already in correct units from calculateMarketParams)
+  // Calculate bucket width as integer
   const bucketWidthInt = Math.floor((maxValue - minValue) / bucketCount);
   
   marketTx.moveCall({
@@ -230,15 +231,15 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     arguments: [
       marketTx.object(CREATOR_CAP),
       marketTx.object(MARKET_REGISTRY),
-      marketTx.pure.string(`What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${tomorrowDateStr}?`),
-      marketTx.pure.string(`Predict ${crypto.name}'s price at resolution. Current price: $${currentPrice.toFixed(decimalPrecision)}`),
+      marketTx.pure.string(`What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${dateStr}?`),
+      marketTx.pure.string(`5-min test market. Predict ${crypto.name}'s price at resolution. Current: $${currentPrice.toFixed(decimalPrecision)}`),
       marketTx.pure.string('Cryptocurrency'),
       marketTx.pure.u8(0), // market_type
       marketTx.pure.u64(minValue),
       marketTx.pure.u64(maxValue),
       marketTx.pure.u64(bucketCount),
       marketTx.pure.u64(bucketWidthInt),
-      marketTx.pure.u64(biddingDeadline),
+      marketTx.pure.u64(biddingDeadlineMs),
       marketTx.pure.u64(resolutionTimeMs),
       marketTx.pure.u64(50), // creatorFeeBasisPoints
       marketTx.pure.string(`Market resolves using CoinGecko ${crypto.symbol}/USD price at resolution time`),
@@ -272,7 +273,7 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
   console.log(`✅ Market Created: ${marketId}`);
   console.log(`✅ Transaction: ${marketResult.digest}`);
   
-  // Step 3: Register in backend API (NO series fields)
+  // Step 3: Register in backend API
   console.log('\n🌐 Step 3/3: Registering in backend API...');
   
   const apiPayload = {
@@ -284,12 +285,11 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     transactionDigest: marketResult.digest,
     marketType: 'cryptocurrency',
     priceFeed: `https://api.coingecko.com/api/v3/simple/price?ids=${crypto.id}&vs_currencies=usd&include_24hr_change=true`,
-    // NO seriesId, roundNumber, or isSeriesMaster
     resolutionCriteria: `This market resolves using the ${crypto.name} (${crypto.symbol}/USD) price reported by CoinGecko at ${resolutionTimeStr}.\n\nThe final price will be processed to the nearest ${bucketWidth < 1 ? 'cent' : 'dollar'} for settlement.\nOnly the CoinGecko API will be used as the data source.\nMarket range: $${(minValue / (decimalPrecision === 2 ? 100 : 1)).toFixed(decimalPrecision)} - $${(maxValue / (decimalPrecision === 2 ? 100 : 1)).toFixed(decimalPrecision)}`,
     configuration: {
-      marketName: `${crypto.name} Market - ${dateStr} ${resolutionHourMin}`,
-      question: `What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${tomorrowDateStr}?`,
-      description: `Predict ${crypto.name}'s price at resolution. Current price: $${currentPrice.toFixed(decimalPrecision)}`,
+      marketName: `${crypto.name} 5-Min Test - ${dateStr} ${resolutionHourMin}`,
+      question: `What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${dateStr}?`,
+      description: `5-min test market. Predict ${crypto.name}'s price at resolution. Current: $${currentPrice.toFixed(decimalPrecision)}`,
       category: 'Cryptocurrency',
       minValue: minValue,
       maxValue: maxValue,
@@ -297,7 +297,7 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
       bucketWidth: bucketWidth,
       decimalPrecision: decimalPrecision,
       valueUnit: 'USD',
-      biddingDeadline: biddingDeadline,
+      biddingDeadline: biddingDeadlineMs,
       resolutionTime: resolutionTimeMs,
       initialLiquidity: initialLiquidity,
       usdcType: USDC_TYPE,
@@ -305,7 +305,7 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
       valuePrefix: '$',
       valueSuffix: '',
       useKSuffix: false,
-      frequency: 'daily',
+      frequency: 'test',
       marketImage: crypto.imageUrl,
       marketImageKey: crypto.imageKey
     }
@@ -333,30 +333,34 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
   console.log('\n🎉 MARKET CREATED!');
   console.log('═══════════════════');
   console.log(`✅ Market ID: ${marketId}`);
-  console.log(`✅ Range: $${minValue.toFixed(decimalPrecision)} - $${maxValue.toFixed(decimalPrecision)}`);
+  console.log(`✅ Range: ${minValue} - ${maxValue}`);
+  console.log(`✅ Bidding Ends: ${biddingDeadline.toISOString()}`);
   console.log(`✅ Resolves: ${resolutionTime.toISOString()}`);
   
   return marketId;
 }
 
 /**
- * Calculate milliseconds until next 10:30 PM UTC
+ * Calculate milliseconds until next 5-minute interval
  */
-function msUntil11PMUTC(): number {
+function msUntilNext5Min(): number {
   const now = new Date();
   const nextRun = new Date(now);
   
-  // Set to 10:30 PM UTC (22:30)
-  nextRun.setUTCHours(22, 30, 0, 0);
+  // Round up to next 5-minute interval
+  const currentMinutes = now.getUTCMinutes();
+  const nextInterval = Math.ceil((currentMinutes + 1) / 5) * 5;
   
-  // If we've already passed 10:30 PM UTC today, schedule for tomorrow
-  if (nextRun.getTime() <= now.getTime()) {
-    nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+  if (nextInterval >= 60) {
+    nextRun.setUTCHours(nextRun.getUTCHours() + 1);
+    nextRun.setUTCMinutes(0, 0, 0);
+  } else {
+    nextRun.setUTCMinutes(nextInterval, 0, 0);
   }
   
   const msUntil = nextRun.getTime() - now.getTime();
   
-  console.log(`⏰ Next run: ${nextRun.toISOString()} (in ${Math.round(msUntil / 1000 / 60 / 60)} hours ${Math.round((msUntil / 1000 / 60) % 60)} minutes)`);
+  console.log(`⏰ Next run: ${nextRun.toISOString()} (in ${Math.round(msUntil / 1000 / 60)} minutes)`);
   
   return msUntil;
 }
@@ -365,7 +369,7 @@ function msUntil11PMUTC(): number {
  * Main orchestration loop
  */
 async function orchestrate() {
-  console.log('🤖 Daily Markets Orchestrator Started');
+  console.log('🤖 5-Minute Markets Orchestrator Started');
   console.log('═══════════════════════════════════════════════════');
   console.log(`📅 ${new Date().toISOString()}`);
   console.log(`🌐 Network: ${NETWORK}`);
@@ -379,9 +383,9 @@ async function orchestrate() {
     process.exit(1);
   }
   
-  async function runDailyCreation() {
+  async function run5MinCreation() {
     console.log('\n╔════════════════════════════════════════════════╗');
-    console.log('║  📅 DAILY MARKET CREATION - 10:30 PM UTC      ║');
+    console.log('║  🧪 5-MIN TEST MARKETS - Every 5 Minutes      ║');
     console.log('╚════════════════════════════════════════════════╝\n');
     
     const creationTime = new Date();
@@ -391,7 +395,7 @@ async function orchestrate() {
       console.log('📈 Creating BTC Market...\n');
       const btcPrice = await fetchCryptoPrice(CRYPTO_CONFIGS.btc.id);
       const btcParams = calculateMarketParams(CRYPTO_CONFIGS.btc, btcPrice, creationTime);
-      await createDailyMarket(btcParams);
+      await create5MinMarket(btcParams);
       
       // Wait 10 seconds between market creations to avoid coin version conflicts
       console.log('\n⏳ Waiting 10 seconds for blockchain to finalize...\n');
@@ -401,31 +405,29 @@ async function orchestrate() {
       console.log('📈 Creating SUI Market...\n');
       const suiPrice = await fetchCryptoPrice(CRYPTO_CONFIGS.sui.id);
       const suiParams = calculateMarketParams(CRYPTO_CONFIGS.sui, suiPrice, creationTime);
-      await createDailyMarket(suiParams);
+      await create5MinMarket(suiParams);
       
-      console.log('\n✅ Both daily markets created successfully!');
+      console.log('\n✅ Both 5-min markets created successfully!');
       
     } catch (error: any) {
-      console.error(`\n❌ Daily market creation failed: ${error.message}`);
+      console.error(`\n❌ 5-min market creation failed: ${error.message}`);
       if (error.stack) {
         console.error(error.stack);
       }
     }
     
-    // Schedule next run (tomorrow at 10:30 PM UTC)
-    const msUntilNext = msUntil11PMUTC();
-    console.log(`\n⏰ Scheduling next run in ${Math.round(msUntilNext / 1000 / 60 / 60)} hours`);
-    setTimeout(runDailyCreation, msUntilNext);
+    // Schedule next run (next 5-minute interval)
+    const msUntilNext = msUntilNext5Min();
+    console.log(`\n⏰ Scheduling next run in ${Math.round(msUntilNext / 1000 / 60)} minutes`);
+    setTimeout(run5MinCreation, msUntilNext);
   }
   
   // Calculate initial delay
-  const initialDelay = msUntil11PMUTC();
-  const hoursUntil = Math.floor(initialDelay / 1000 / 60 / 60);
-  const minutesUntil = Math.round((initialDelay / 1000 / 60) % 60);
-  console.log(`⏰ First run scheduled in ${hoursUntil} hours ${minutesUntil} minutes`);
+  const initialDelay = msUntilNext5Min();
+  console.log(`⏰ First run scheduled in ${Math.round(initialDelay / 1000 / 60)} minutes`);
   console.log(`⏰ Will create markets at: ${new Date(Date.now() + initialDelay).toISOString()}\n`);
   
-  setTimeout(runDailyCreation, initialDelay);
+  setTimeout(run5MinCreation, initialDelay);
 }
 
 // Start orchestration
