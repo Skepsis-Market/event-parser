@@ -215,9 +215,14 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
   const resolutionTimeMs = resolutionTime.getTime();
   
   const dateStr = creationTime.toISOString().split('T')[0];
-  const tomorrowDateStr = resolutionTime.toISOString().split('T')[0];
+  const resolutionDateStr = resolutionTime.toISOString().split('T')[0];
   const resolutionTimeStr = resolutionTime.toISOString().replace('T', ' at ').split('.')[0] + ' UTC';
   const resolutionHourMin = resolutionTime.toISOString().split('T')[1].substring(0, 5);
+  
+  // Format resolution date as "December 15, 2025"
+  const resolutionDate = new Date(resolutionTime);
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const formattedDate = `${monthNames[resolutionDate.getUTCMonth()]} ${resolutionDate.getUTCDate()}, ${resolutionDate.getUTCFullYear()}`;
   
   // Determine decimal precision based on bucket width
   const decimalPrecision = bucketWidth < 1 ? 2 : 0;
@@ -230,7 +235,7 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     arguments: [
       marketTx.object(CREATOR_CAP),
       marketTx.object(MARKET_REGISTRY),
-      marketTx.pure.string(`What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${tomorrowDateStr}?`),
+      marketTx.pure.string(`What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${resolutionDateStr}?`),
       marketTx.pure.string(`Predict ${crypto.name}'s price at resolution. Current price: $${currentPrice.toFixed(decimalPrecision)}`),
       marketTx.pure.string('Cryptocurrency'),
       marketTx.pure.u8(0), // market_type
@@ -287,8 +292,8 @@ async function createDailyMarket(params: MarketParams): Promise<string> {
     // NO seriesId, roundNumber, or isSeriesMaster
     resolutionCriteria: `This market resolves using the ${crypto.name} (${crypto.symbol}/USD) price reported by CoinGecko at ${resolutionTimeStr}.\n\nThe final price will be processed to the nearest ${bucketWidth < 1 ? 'cent' : 'dollar'} for settlement.\nOnly the CoinGecko API will be used as the data source.\nMarket range: $${(minValue / (decimalPrecision === 2 ? 100 : 1)).toFixed(decimalPrecision)} - $${(maxValue / (decimalPrecision === 2 ? 100 : 1)).toFixed(decimalPrecision)}`,
     configuration: {
-      marketName: `${crypto.name} Market - ${dateStr} ${resolutionHourMin}`,
-      question: `What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${tomorrowDateStr}?`,
+      marketName: `${crypto.name} Daily - ${formattedDate}`,
+      question: `What will be the price of ${crypto.name} (${crypto.symbol}/USD) at ${resolutionHourMin} UTC on ${resolutionDateStr}?`,
       description: `Predict ${crypto.name}'s price at resolution. Current price: $${currentPrice.toFixed(decimalPrecision)}`,
       category: 'Cryptocurrency',
       minValue: minValue,
