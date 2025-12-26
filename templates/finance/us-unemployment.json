@@ -1,0 +1,22 @@
+{
+  "marketName": "US Unemployment Rate (Dec 2025)",
+  "question": "What will be the US Unemployment Rate (U-3) for December 2025?",
+  "description": "Predict the official U-3 Unemployment Rate released in the BLS 'Employment Situation' report for Dec 2025. Note: Release date is Jan 9 (2nd Friday) due to holidays.",
+  "category": "economy",
+  "minValue": 300,
+  "maxValue": 600,
+  "bucketCount": 30,
+  "initialLiquidity": 10000000000,
+  "biddingDeadline": 1767963600000,
+  "resolutionTime": 1767966600000,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 2,
+  "valueUnit": "Percent",
+  "priceFeed": "manual",
+  "resolutionCriteria": "Resolves to the seasonally adjusted U-3 rate in Table A-1 of the BLS release on Jan 9, 2026.\n- Hard Lock: 8:00 AM ET (30 mins before release).\n- Value: First released number (Preliminary). Revisions ignored.",
+  "valueType": "percentage",
+  "valuePrefix": "",
+  "valueSuffix": "%",
+  "frequency": "monthly",
+    "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/3d486d1f-e72d-4e91-ac82-1c6658176718.jpg"
+}

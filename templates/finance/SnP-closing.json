@@ -1,0 +1,23 @@
+{
+  "marketName": "S&P 500 Closing Price (Jan 30, 2026)",
+  "question": "What will be the closing value of the S&P 500 on Jan 30, 2026?",
+  "description": "Predict the official closing price of the S&P 500 Index (SPX) on the final trading day of January.",
+  "category": "finance",
+  "minValue": 6500,
+  "maxValue": 7500,
+  "bucketCount": 50,
+  "initialLiquidity": 10000000000,
+  "biddingDeadline": 1770065100000,
+  "resolutionTime": 1770073200000,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 0,
+  "valueUnit": "Points",
+  "priceFeed": "manual",
+  "resolutionCriteria": "Resolves to the official closing value reported by S&P Dow Jones.\n- Date: Jan 30, 2026.\n- Hard Lock: 3:45 PM ET (15 mins before close).\n- Note: Settlement often takes 10-20 mins after bell.",
+  "valueType": "scalar",
+  "valuePrefix": "$",
+  "valueSuffix": "",
+  "frequency": "monthly",
+    "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/ad863b97-7966-4b2c-b2e3-87f2e7ed9e73.jpg",
+    "marketImageKey": "markets/ad863b97-7966-4b2c-b2e3-87f2e7ed9e73.jpg"
+}

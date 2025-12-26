@@ -1,0 +1,23 @@
+{
+  "marketName": "10-Year Treasury Yield (Jan 30 Close)",
+  "question": "What will be the closing yield of the US 10-Year Treasury Note on Jan 30, 2026?",
+  "description": "Predict the closing yield of the 10-Year T-Note on the final trading day of January 2026.",
+  "category": "finance",
+  "minValue": 350,
+  "maxValue": 550,
+  "bucketCount": 20,
+  "initialLiquidity": 10000000000,
+  "biddingDeadline": 1770065100000,
+  "resolutionTime": 1770076800000,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 2,
+  "valueUnit": "Percent",
+  "priceFeed": "manual",
+  "resolutionCriteria": "Resolves to the '10 Yr' rate from the 'Daily Treasury Par Yield Curve Rates' table.\n- Date: Jan 30, 2026.\n- Hard Lock: 3:45 PM ET (15 mins before market close).\n- Fallback: If Treasury site is down, wait 24h.",
+  "valueType": "percentage",
+  "valuePrefix": "",
+  "valueSuffix": "%",
+  "frequency": "monthly",
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/ce5e5622-9169-4022-ad0a-481cadc2a73a.jpg",
+  "marketImageKey": "markets/ce5e5622-9169-4022-ad0a-481cadc2a73a.jpg"
+}

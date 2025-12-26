@@ -1,0 +1,23 @@
+{
+  "marketName": "US CPI Annual Inflation (Dec 2025)",
+  "question": "What will be the US CPI inflation rate (YoY) for December 2025?",
+  "description": "Predict the annual (year-over-year) Consumer Price Index (CPI) inflation rate for December 2025. Source: BLS 'All items' unadjusted.",
+  "category": "economy",
+  "minValue": 150,
+  "maxValue": 450,
+  "bucketCount": 30,
+  "initialLiquidity": 10000000000,
+  "biddingDeadline": 1768309200000,
+  "resolutionTime": 1768312800000,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 2,
+  "valueUnit": "Percent",
+  "priceFeed": "manual",
+  "resolutionCriteria": "Resolves to the 'All items' unadjusted 12-month percent change.\n- Date: Jan 13, 2026.\n- Hard Lock: 8:00 AM ET.\n- Value scaling: 2.70% = 270.",
+  "valueType": "percentage",
+  "valuePrefix": "",
+  "valueSuffix": "%",
+  "frequency": "monthly",
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/d8f5a590-75f2-4b0b-8dfc-f3614936b66d.svg",
+  "marketImageKey": "markets/d8f5a590-75f2-4b0b-8dfc-f3614936b66d.svg"
+}

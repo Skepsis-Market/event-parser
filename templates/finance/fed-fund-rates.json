@@ -1,0 +1,23 @@
+{
+  "marketName": "Fed Funds Upper Limit (Jan 2026)",
+  "question": "What will be the Federal Funds Target Rate (Upper Bound) after the Jan 2026 FOMC?",
+  "description": "Predict the upper limit of the Federal Funds Target Range announced at the conclusion of the Jan 28, 2026 FOMC meeting.",
+  "category": "economy",
+  "minValue": 300,
+  "maxValue": 550,
+  "bucketCount": 25,
+  "initialLiquidity": 10000000000,
+  "biddingDeadline": 1769623200000,
+  "resolutionTime": 1769634000000,
+  "creatorFeeBasisPoints": 50,
+  "decimalPrecision": 2,
+  "valueUnit": "bps",
+  "priceFeed": "manual",
+  "resolutionCriteria": "Resolves to the Upper Bound of the target range in the Implementation Note.\n- Date: Jan 28, 2026.\n- Hard Lock: 1:00 PM ET (1 hour before announcement).\n- Value: 450 bps = 4.50%.",
+  "valueType": "scalar",
+  "valuePrefix": "",
+  "valueSuffix": " bps",
+  "frequency": "event-based",
+  "marketImage": "https://skepsis-markets-testnet.s3.us-east-1.amazonaws.com/markets/65b6e5a6-b413-4999-830d-1fef79c41024.webp",
+  "marketImageKey": "markets/65b6e5a6-b413-4999-830d-1fef79c41024.webp"
+}
