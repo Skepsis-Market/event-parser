@@ -30,7 +30,8 @@
     "diagnose:orphaned-sells": "tsx src/scripts/diagnose-orphaned-sells.ts",
     "fix:betplaced-event-type": "tsx src/scripts/fix-betplaced-event-type.ts",
     "deploy:production": "tsx src/scripts/deploy-to-production.ts",
-    "split:gas": "tsx src/scripts/split-gas-coins.ts"
+    "split:gas": "tsx src/scripts/split-gas-coins.ts",
+    "simulate:football": "tsx src/scripts/simulate-football-markets.ts"
   },
   "keywords": [],
   "author": "",
